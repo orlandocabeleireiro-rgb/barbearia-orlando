@@ -324,6 +324,153 @@
   document.head.appendChild(s);
 })();
 </script>
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc,
+           collection, getDocs, onSnapshot, addDoc, query, orderBy
+         } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+           signOut, onAuthStateChanged, updatePassword
+         } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyB8m2GOc6FaZbiNtqBQOgh4OsZhCI9Dnbw",
+    authDomain: "barbearia-orlando-c660c.firebaseapp.com",
+    projectId: "barbearia-orlando-c660c",
+    storageBucket: "barbearia-orlando-c660c.firebasestorage.app",
+    messagingSenderId: "494039440479",
+    appId: "1:494039440479:web:5629c63da8f4fc4902cfea"
+  };
+
+  const app  = initializeApp(firebaseConfig);
+  const db   = getFirestore(app);
+  const auth = getAuth(app);
+
+  window._db   = db;
+  window._auth = auth;
+  window._fdb  = { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, addDoc, query, orderBy };
+  window._fauth = { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword };
+  window._fbReady = true;
+
+  // ── Real-time listeners (start after auth) ──
+  function startListeners() {
+    // Clients - use onSnapshot with error handling
+    onSnapshot(collection(db,'clients'), snap => {
+      DB.clients = snap.docs.map(d => ({id:d.id,...d.data()}));
+      if (window.currentUser?.isAdmin) refreshAdmin();
+    }, err => {
+      console.warn('Clients listener error:', err.code);
+      // Fallback: fetch once
+      getDocs(collection(db,'clients')).then(snap => {
+        DB.clients = snap.docs.map(d => ({id:d.id,...d.data()}));
+        if (window.currentUser?.isAdmin) refreshAdmin();
+      }).catch(e => console.error('clients getDocs fallback failed:', e));
+    });
+
+    onSnapshot(collection(db,'bookings'), snap => {
+      DB.bookings = snap.docs.map(d => ({id:d.id,...d.data()}));
+      if (window.currentUser?.isAdmin) refreshAdmin();
+      else if (window.currentUser) {
+        const mv = document.getElementById('cview-mybookings');
+        if (mv?.classList.contains('active')) renderMyBookings();
+      }
+    }, err => {
+      console.warn('Bookings listener error:', err.code);
+      getDocs(collection(db,'bookings')).then(snap => {
+        DB.bookings = snap.docs.map(d => ({id:d.id,...d.data()}));
+        if (window.currentUser?.isAdmin) refreshAdmin();
+      }).catch(e => console.error('bookings getDocs fallback failed:', e));
+    });
+
+    onSnapshot(collection(db,'services'), snap => {
+      DB.services = snap.docs.map(d => ({id:d.id,...d.data()}));
+      if (window.currentUser?.isAdmin) refreshAdmin();
+      else if (window.currentUser) renderBookingServices();
+    }, err => console.warn('Services listener error:', err.code));
+
+    onSnapshot(collection(db,'barbers'), snap => {
+      DB.barbers = snap.docs.map(d => ({id:d.id,...d.data()}));
+      if (window.currentUser?.isAdmin) refreshAdmin();
+      else if (window.currentUser) renderBookingBarbers();
+    }, err => console.warn('Barbers listener error:', err.code));
+
+    onSnapshot(collection(db,'admins'), snap => {
+      DB.admins = snap.docs.map(d => ({id:d.id,...d.data()}));
+    }, err => console.warn('Admins listener error:', err.code));
+  }
+
+  // ── Seed default data if Firestore is empty ──
+  async function seedIfEmpty() {
+    const svcs = await getDocs(collection(db,'services'));
+    if (svcs.empty) {
+      for (const s of DEFAULT_SERVICES) await setDoc(doc(db,'services',s.id), s);
+      for (const b of DEFAULT_BARBERS)  await setDoc(doc(db,'barbers', b.id), b);
+      console.log('✅ Dados iniciais inseridos no Firestore');
+    }
+  }
+
+  // ── Firebase Auth: register new client ──
+  window._fbRegister = async function(email, password, clientData) {
+    const { createUserWithEmailAndPassword } = window._fauth;
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    const uid  = cred.user.uid;
+    clientData.id = uid;
+    await setDoc(doc(db,'clients', uid), clientData);
+    return uid;
+  };
+
+  // ── Firebase Auth: login client ──
+  window._fbLogin = async function(email, password) {
+    const { signInWithEmailAndPassword } = window._fauth;
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    return cred.user.uid;
+  };
+
+  // ── Firebase Auth: logout ──
+  window._fbLogout = async function() {
+    const { signOut } = window._fauth;
+    await signOut(auth);
+  };
+
+  // ── Init ──
+  window._fbInit = async function() {
+    await seedIfEmpty();
+    startListeners();
+    // Auth state observer handles session restore automatically
+  };
+
+  // ── Auth state observer ──
+  // Fires on page load if user was previously signed in
+  onAuthStateChanged(auth, async (firebaseUser) => {
+    removeFbLoading();
+    if (!firebaseUser) return; // not logged in — show auth screen
+    // Check if this is a client (not admin — admin uses password auth separately)
+    try {
+      const snap = await getDoc(doc(db,'clients', firebaseUser.uid));
+      if (snap.exists()) {
+        const c = {id:snap.id,...snap.data()};
+        if (c.status === 'ativo') {
+          window.currentUser = { id:c.id, nome:c.nome, email:c.email, isAdmin:false, firebaseUid:firebaseUser.uid };
+          showApp('booking');
+        } else if (c.status === 'pendente') {
+          document.getElementById('pend-name').textContent  = c.nome + ' ' + c.apelido;
+          document.getElementById('pend-email').textContent = c.email;
+          showPendingScreen();
+        } else {
+          showAAlert('al-login','A sua conta foi recusada. Contacte a barbearia.');
+          await window._fauth.signOut(auth);
+        }
+      }
+    } catch(e) {
+      console.error('Auth state error:', e);
+    }
+  });
+
+  // Run after page JS is ready
+  window.addEventListener('fbstart', () => window._fbInit());
+</script>
 </head>
 <body>
 <div class="toast-container" id="toast-container"></div>
@@ -757,32 +904,51 @@ const DEFAULT_BARBERS = [
   { id:'b3', name:'Ariane',  role:'Barbeira',        icon:'LISA_SVG' }
 ];
 
-// ── LOCALSTORAGE PERSISTENCE ──
+// ── LOCALSTORAGE (session only) ──
 function lsGet(key, fallback) {
-  try {
-    const v = localStorage.getItem('bo_' + key);
-    return v ? JSON.parse(v) : fallback;
-  } catch(e) { return fallback; }
+  try { const v=localStorage.getItem('bo_'+key); return v?JSON.parse(v):fallback; } catch(e){return fallback;}
 }
 function lsSave(key, value) {
-  try { localStorage.setItem('bo_' + key, JSON.stringify(value)); } catch(e) {}
-}
-function saveDB() {
-  lsSave('clients',  DB.clients);
-  lsSave('bookings', DB.bookings);
-  lsSave('admins',   DB.admins);
-  lsSave('services', DB.services);
-  lsSave('barbers',  DB.barbers);
-  lsSave('nextId',   nextId);
+  try { localStorage.setItem('bo_'+key, JSON.stringify(value)); } catch(e){}
 }
 
-// ── DB (loaded from localStorage or defaults) ──
+// ── FIRESTORE HELPERS ──
+async function fsSet(col, id, data) {
+  try {
+    const {doc,setDoc}=window._fdb, db=window._db;
+    await setDoc(doc(db,col,id), data);
+  } catch(e){ console.error('fsSet error:',e); }
+}
+async function fsUpdate(col, id, data) {
+  try {
+    const {doc,updateDoc}=window._fdb, db=window._db;
+    await updateDoc(doc(db,col,id), data);
+  } catch(e){ console.error('fsUpdate error:',e); }
+}
+async function fsDel(col, id) {
+  try {
+    const {doc,deleteDoc}=window._fdb, db=window._db;
+    await deleteDoc(doc(db,col,id));
+  } catch(e){ console.error('fsDel error:',e); }
+}
+async function fsAdd(col, data) {
+  try {
+    const {collection,addDoc}=window._fdb, db=window._db;
+    const ref=await addDoc(collection(db,col), data);
+    return ref.id;
+  } catch(e){ console.error('fsAdd error:',e); }
+}
+
+// saveDB is now a no-op (Firestore listeners keep DB in sync)
+function saveDB() {}
+
+// ── IN-MEMORY DB (synced from Firestore via listeners) ──
 const DB = {
-  clients:   lsGet('clients',  []),
-  bookings:  lsGet('bookings', []),
-  admins:    lsGet('admins',   []),
-  services:  lsGet('services', DEFAULT_SERVICES),
-  barbers:   lsGet('barbers',  DEFAULT_BARBERS),
+  clients:   [],
+  bookings:  [],
+  admins:    [],
+  services:  [],
+  barbers:   [],
   adminUser: 'admin',
   adminPass: 'orlando2024'
 };
@@ -924,18 +1090,20 @@ function saveAdmin() {
     if (DB.admins.find(a=>a.user===user)||user===DB.adminUser) { showModalErr('modal-admin-err','Utilizador já existe.'); return; }
     DB.admins.push({ id:uid('adm'), nome, user, passHash:simpleHash(pass), level, createdAt:new Date().toLocaleDateString('pt-PT') });
   }
-  saveDB(); closeModal('modal-admin'); refreshAdmin();
+  if (id) { const a2=DB.admins.find(x=>x.id===id); if(a2) fsUpdate('admins',id,a2); }
+  else { const a2=DB.admins[DB.admins.length-1]; if(a2) fsSet('admins',a2.id,a2); }
+  closeModal('modal-admin'); refreshAdmin();
 }
 
-function deleteAdmin(id) { DB.admins=DB.admins.filter(a=>a.id!==id); saveDB(); closeModal('modal-confirm'); refreshAdmin(); }
+function deleteAdmin(id) { DB.admins=DB.admins.filter(a=>a.id!==id); fsDel('admins',id); closeModal('modal-confirm'); refreshAdmin(); }
 
 function toggleRecurEnd(val) {
   document.getElementById('recur-end-wrap').style.display = val==='none' ? 'none' : 'block';
 }
 
 function simpleHash(s) { let h=0; for(let i=0;i<s.length;i++) h=(Math.imul(31,h)+s.charCodeAt(i))|0; return h.toString(16); }
-let nextId = lsGet('nextId', 100);
-function uid(p='') { nextId++; lsSave('nextId', nextId); return p + nextId; }
+// UID: timestamp + random for uniqueness without counter
+function uid(p='') { return p + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
 let currentUser = null;
 
@@ -963,7 +1131,7 @@ function checkGdprState() {
 function openGdpr() { document.getElementById('gdpr-modal')?.classList.add('open'); }
 function closeGdpr() { document.getElementById('gdpr-modal')?.classList.remove('open'); }
 
-function doRegister() {
+async function doRegister() {
   clearAuthAlerts();
   const nome=v('r-nome').trim(), apelido=v('r-apelido').trim(), tel=v('r-tel').trim();
   const email=v('r-email').trim().toLowerCase(), pass=v('r-pass'), pass2=v('r-pass2');
@@ -971,42 +1139,60 @@ function doRegister() {
   let ok=true;
   if (pass.length<6) { document.getElementById('er-pass')?.classList.add('show'); ok=false; }
   if (pass!==pass2)  { document.getElementById('er-pass2')?.classList.add('show'); ok=false; }
-  if (DB.clients.find(c=>c.email===email)) { document.getElementById('er-email')?.classList.add('show'); ok=false; }
   if (!document.getElementById('gdpr1').checked || !document.getElementById('gdpr2').checked) {
     document.getElementById('er-gdpr')?.classList.add('show'); ok=false;
   }
   if (!ok) return;
+
+  // Disable button during request
+  const btn = document.getElementById('btn-register');
+  btn.disabled=true; btn.textContent='A criar conta…';
+
   const gdprMarketing = document.getElementById('gdpr3').checked;
-  const c={ id:uid('c'), nome, apelido, tel, email, passHash:simpleHash(pass),
-    registedAt:new Date().toLocaleDateString('pt-PT'),
-    status:'pendente',   // requires admin approval
-    gdpr:{ privacidade:true, tratamento:true, marketing:gdprMarketing, date:new Date().toLocaleDateString('pt-PT') }
+  const clientData = {
+    nome, apelido, tel, email,
+    registedAt: new Date().toLocaleDateString('pt-PT'),
+    status: 'pendente',
+    gdpr: { privacidade:true, tratamento:true, marketing:gdprMarketing, date:new Date().toLocaleDateString('pt-PT') }
   };
-  DB.clients.push(c);
-  saveDB();
-  // Notificação apenas para admin (adminOnly:true para o cliente não ver enquanto pendente)
-  addNotif('registo', 'Novo registo pendente', `${nome} ${apelido} registou-se e aguarda validação.`, c.id, true);
-  // Show pending screen
-  document.getElementById('pend-name').textContent = nome + ' ' + apelido;
-  document.getElementById('pend-email').textContent = email;
-  showPendingScreen();
+
+  try {
+    const uid = await window._fbRegister(email, pass, clientData);
+    addNotif('registo','Novo registo pendente',`${nome} ${apelido} registou-se e aguarda validação.`, uid, true);
+    document.getElementById('pend-name').textContent  = nome + ' ' + apelido;
+    document.getElementById('pend-email').textContent = email;
+    // Sign out immediately — client must wait for approval before accessing app
+    await window._fauth.signOut(window._auth);
+    showPendingScreen();
+  } catch(e) {
+    btn.disabled=false; btn.textContent='Criar Conta →';
+    if (e.code==='auth/email-already-in-use') {
+      document.getElementById('er-email')?.classList.add('show');
+    } else {
+      showAAlert('al-reg', 'Erro ao criar conta: ' + (e.message||e.code||e));
+    }
+  }
 }
 
-function doLogin() {
+async function doLogin() {
   clearAuthAlerts();
   const email=v('l-email').trim().toLowerCase(), pass=v('l-pass');
   if (!email||!pass) { showAAlert('al-login','Preencha o email e a password.'); return; }
-  const c=DB.clients.find(x=>x.email===email && x.passHash===simpleHash(pass));
-  if (!c) { showAAlert('al-login','Email ou password incorretos.'); return; }
-  if (c.status==='pendente') {
-    document.getElementById('pend-name').textContent = c.nome + ' ' + c.apelido;
-    document.getElementById('pend-email').textContent = c.email;
-    showPendingScreen(); return;
+
+  const btn=document.querySelector('#form-login .btn-full');
+  if(btn){ btn.disabled=true; btn.textContent='A entrar…'; }
+
+  try {
+    await window._fbLogin(email, pass);
+    // onAuthStateChanged in Firebase module handles the rest
+  } catch(e) {
+    if(btn){ btn.disabled=false; btn.textContent='Entrar →'; }
+    if (e.code==='auth/user-not-found'||e.code==='auth/wrong-password'||e.code==='auth/invalid-credential') {
+      showAAlert('al-login','Email ou password incorretos.');
+    } else {
+      showAAlert('al-login','Erro ao entrar: '+(e.message||e.code||e));
+    }
   }
-  if (c.status==='rejeitado') {
-    showAAlert('al-login','O seu registo foi recusado pelo administrador. Contacte a barbearia.'); return;
-  }
-  loginAs(c);
 }
 
 function doAdminLogin() {
@@ -1026,12 +1212,12 @@ function doAdminLogin() {
 
 function loginAs(c) {
   currentUser={ id:c.id, nome:c.nome, email:c.email, isAdmin:false };
-  lsSave('session', { id:c.id, nome:c.nome, email:c.email, isAdmin:false });
   showApp('booking');
 }
 
 function showApp(screen) {
   document.getElementById('auth-screen').style.display='none';
+  document.getElementById('pending-screen').style.display='none';
   document.getElementById('booking-screen').style.display = screen==='booking'?'block':'none';
   document.getElementById('admin-screen').style.display   = screen==='admin'  ?'block':'none';
   document.getElementById('hdr-badge').style.display='none';
@@ -1044,20 +1230,23 @@ function showApp(screen) {
   showBell();
 }
 
-function logout() {
+async function logout() {
+  // Sign out from Firebase Auth if client
+  if (currentUser && !currentUser.isAdmin && window._fauth) {
+    try { await window._fauth.signOut(window._auth); } catch(e){}
+  }
   currentUser=null;
-  lsSave('session', null);
   document.getElementById('auth-screen').style.display='flex';
+  document.getElementById('pending-screen').style.display='none';
   ['booking-screen','admin-screen'].forEach(id=>document.getElementById(id).style.display='none');
   document.getElementById('hdr-badge').style.display='block';
   document.getElementById('user-pill').style.display='none';
   document.getElementById('btn-logout').style.display='none';
   hideBell();
-  ['l-email','l-pass','a-user','a-pass'].forEach(id=>document.getElementById(id).value='');
+  ['l-email','l-pass','a-user','a-pass'].forEach(id=>{ const el=document.getElementById(id); if(el)el.value=''; });
   clearAuthAlerts(); switchTab('login');
-  // Reset GDPR checkboxes
-  ['gdpr1','gdpr2','gdpr3'].forEach(id=>{ document.getElementById(id).checked=false; });
-  document.getElementById('btn-register').disabled=true;
+  ['gdpr1','gdpr2','gdpr3'].forEach(id=>{ const el=document.getElementById(id); if(el)el.checked=false; });
+  const btnReg=document.getElementById('btn-register'); if(btnReg){btnReg.disabled=true; btnReg.textContent='Criar Conta →';}
   document.getElementById('er-gdpr')?.classList.remove('show');
 }
 
@@ -1196,7 +1385,7 @@ function sendEmailMarcacao(client, booking) {
 function approveClient(id) {
   const c=DB.clients.find(x=>x.id===id); if(!c) return;
   c.status='ativo'; c.approvedAt=new Date().toLocaleDateString('pt-PT');
-  saveDB();
+  fsUpdate('clients', c.id, {status:'ativo', approvedAt:c.approvedAt});
   // Remove the pending registration notification for this client
   removeNotifsForClient(id, 'registo');
   sendEmailAprovado(c);
@@ -1209,7 +1398,7 @@ function rejectClient(id) {
   const c=DB.clients.find(x=>x.id===id); if(!c) return;
   if (!confirm(`Rejeitar o registo de ${c.nome} ${c.apelido}?`)) return;
   c.status='rejeitado';
-  saveDB();
+  fsUpdate('clients', c.id, {status:'rejeitado'});
   // Remove the pending registration notification
   removeNotifsForClient(id, 'registo');
   addNotif('cancelada', 'Registo recusado', `O registo de ${c.nome} ${c.apelido} foi recusado.`, c.id);
@@ -1443,13 +1632,19 @@ function saveBooking() {
       count++;
     }
   }
-  saveDB(); closeModal('modal-booking'); refreshAdmin();
+  // Sync to Firestore
+  if (id) {
+    const b2=DB.bookings.find(x=>x.id===id); if(b2) fsUpdate('bookings',id,b2);
+  } else {
+    DB.bookings.filter(b=>!b._synced).forEach(b=>{b._synced=true; fsSet('bookings',b.id,b);});
+  }
+  closeModal('modal-booking'); refreshAdmin();
 }
 
 function deleteBooking(id) {
   const b=DB.bookings.find(x=>x.id===id);
   if(b){ addNotif('cancelada','Marcação cancelada',`Marcação de ${b.clientName} (${b.service}, ${b.date} às ${b.time}) foi cancelada.`, b.clientId); invalidateBusy(b.barberId, b.rawDate); }
-  DB.bookings=DB.bookings.filter(x=>x.id!==id); saveDB(); closeModal('modal-confirm'); refreshAdmin();
+  DB.bookings=DB.bookings.filter(x=>x.id!==id); fsDel('bookings',id); closeModal('modal-confirm'); refreshAdmin();
 }
 
 // CLIENT CRUD
@@ -1482,7 +1677,16 @@ function saveClient() {
   saveDB(); closeModal('modal-client'); refreshAdmin();
 }
 
-function deleteClient(id) { DB.clients=DB.clients.filter(c=>c.id!==id); DB.bookings=DB.bookings.filter(b=>b.clientId!==id); saveDB(); closeModal('modal-confirm'); refreshAdmin(); }
+function deleteClient(id) {
+  DB.clients=DB.clients.filter(c=>c.id!==id);
+  const toDelBk=DB.bookings.filter(b=>b.clientId===id);
+  DB.bookings=DB.bookings.filter(b=>b.clientId!==id);
+  fsDel('clients',id);
+  toDelBk.forEach(b=>fsDel('bookings',b.id));
+  // Note: Firebase Auth user deletion requires Admin SDK (server-side)
+  // The client record is removed from Firestore so login will fail gracefully
+  closeModal('modal-confirm'); refreshAdmin();
+}
 
 // SERVICE CRUD
 function editService(id) {
@@ -1503,10 +1707,12 @@ function saveService() {
   if (!name||!dur||isNaN(price)) { showModalErr('modal-svc-err','Preencha todos os campos.'); return; }
   if (id) { const s=DB.services.find(x=>x.id===id); s.icon=icon; s.name=name; s.dur=dur; s.price=price; }
   else DB.services.push({ id:uid('s'), icon, name, dur, price });
-  saveDB(); closeModal('modal-service'); refreshAdmin();
+  if (id) { const s2=DB.services.find(x=>x.id===id); if(s2) fsUpdate('services',id,s2); }
+  else { const s2=DB.services[DB.services.length-1]; if(s2) fsSet('services',s2.id,s2); }
+  closeModal('modal-service'); refreshAdmin();
 }
 
-function deleteService(id) { DB.services=DB.services.filter(s=>s.id!==id); saveDB(); closeModal('modal-confirm'); refreshAdmin(); }
+function deleteService(id) { DB.services=DB.services.filter(s=>s.id!==id); fsDel('services',id); closeModal('modal-confirm'); refreshAdmin(); }
 
 // BARBER CRUD
 function editBarber(id) {
@@ -1525,10 +1731,12 @@ function saveBarber() {
   if (!name||!role) { showModalErr('modal-barber-err','Preencha o nome e a função.'); return; }
   if (id) { const b=DB.barbers.find(x=>x.id===id); b.name=name; b.role=role; b.icon=icon; }
   else DB.barbers.push({ id:uid('br'), name, role, icon });
-  saveDB(); closeModal('modal-barber'); refreshAdmin();
+  if (id) { const b2=DB.barbers.find(x=>x.id===id); if(b2) fsUpdate('barbers',id,b2); }
+  else { const b2=DB.barbers[DB.barbers.length-1]; if(b2) fsSet('barbers',b2.id,b2); }
+  closeModal('modal-barber'); refreshAdmin();
 }
 
-function deleteBarber(id) { DB.barbers=DB.barbers.filter(b=>b.id!==id); saveDB(); closeModal('modal-confirm'); refreshAdmin(); }
+function deleteBarber(id) { DB.barbers=DB.barbers.filter(b=>b.id!==id); fsDel('barbers',id); closeModal('modal-confirm'); refreshAdmin(); }
 
 // Confirm delete modal
 function confirmDeleteBooking(id, clientName) {
@@ -1670,7 +1878,7 @@ function finalizeBooking(){
   const dateStr=dateObj.toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const booking={id:uid('bk'),clientId:currentUser.id,clientName:currentUser.nome,serviceId:bState.service,service:bState.serviceName,barberId:bState.barber,barber:bState.barberName,rawDate:bState.date,date:dateStr,time:bState.time,price:bState.servicePrice,status:'confirmada'};
   DB.bookings.push(booking);
-  saveDB();
+  fsSet('bookings', booking.id, booking);
   invalidateBusy(bState.barber, bState.date);
   // Send confirmation email - use client from DB or fall back to currentUser data
   const client = DB.clients.find(c=>c.id===currentUser.id);
@@ -1789,7 +1997,7 @@ function cancelMyBooking(id) {
   const b = DB.bookings.find(x => x.id === id);
   if (!b) return;
   b.status = 'cancelada';
-  saveDB();
+  fsUpdate('bookings', b.id, {status:'cancelada'});
   addNotif('cancelada', 'Marcação cancelada', `A sua marcação de ${b.service} com ${b.barber} em ${b.date} às ${b.time} foi cancelada.`, currentUser.id);
   renderMyBookings();
 }
@@ -1951,9 +2159,14 @@ function hideBell() {
 }
 
 // Helpers
-function v(id){return document.getElementById(id).value;}
+function v(id){return document.getElementById(id)?.value||'';}
 function set(id,val){const el=document.getElementById(id);if(el)el.textContent=val;}
-function fmt(n){return n.toLocaleString('pt-PT',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmt(n){return (n||0).toLocaleString('pt-PT',{minimumFractionDigits:2,maximumFractionDigits:2});}
+
+// Fire fbstart after DOM+module ready
+window.addEventListener('DOMContentLoaded',()=>{
+  setTimeout(()=>window.dispatchEvent(new Event('fbstart')),500);
+});
 </script>
 
 <!-- GDPR / Privacy Modal -->
