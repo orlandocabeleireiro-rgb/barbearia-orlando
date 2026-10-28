@@ -2451,6 +2451,7 @@ function getWaitlistSelectedTimes() {
 
 function joinWaitlist() {
   if (!currentUser) return;
+  if (!bState.date) { alert('Por favor escolha primeiro o dia no calendário.'); return; }
   const tel = document.getElementById('wl-tel').value.trim();
   if (!tel) { alert('Por favor introduza o seu telemóvel.'); return; }
   const preferredTimes = getWaitlistSelectedTimes();
@@ -2488,6 +2489,11 @@ function joinWaitlist() {
   addNotif('registo', 'Lista de espera', `${currentUser.nome} entrou na lista de espera para ${bState.serviceName} (${entry.barber}) em ${entry.dateLabel}.`);
 }
 
+// Older waitlist entries could be saved with no date (dateLabel "Invalid Date")
+function waitlistDateLabel(w) {
+  return w.date ? (w.dateLabel || w.date) : 'Sem data';
+}
+
 function renderWaitlistTable() {
   const tb = document.getElementById('tbl-waitlist');
   if (!tb) return;
@@ -2518,7 +2524,7 @@ function renderWaitlistTable() {
     <td><span class="client-name-link" onclick="showClientContactPopup('${w.clientId||''}')"><strong>${displayClientName(w)}</strong></span></td>
     <td>${w.service||'—'}</td>
     <td>${w.barber||'—'}</td>
-    <td>${w.dateLabel||w.date||'—'}</td>
+    <td>${waitlistDateLabel(w)}</td>
     <td>${w.preferredTimes && w.preferredTimes.length ? w.preferredTimes.map(t=>'<span class="chip chip-blue" style="margin:2px;font-size:10px">'+t+'</span>').join('') : (w.time||'—')}</td>
     <td>${w.tel||'—'}</td>
     <td>${w.requestedAt||'—'}</td>
@@ -5081,6 +5087,11 @@ function switchBookingSearchMode(mode) {
   }
   // Reset any partial selection when switching modes, so Próximo stays disabled
   bState.date = null; bState.time = null;
+  // ...and hide the old day's time slots + waitlist form, which would otherwise
+  // stay on screen with no date behind them
+  document.querySelectorAll('.cal-day.selected').forEach(d => d.classList.remove('selected'));
+  document.getElementById('time-picker').style.display = 'none';
+  document.getElementById('waitlist-banner')?.classList.remove('show');
   document.getElementById('btn-3').disabled = true;
   document.getElementById('timefirst-results').innerHTML = '';
 }
@@ -5489,7 +5500,7 @@ async function renderMyBookings() {
   }
 
   function waitlistCard(w) {
-    const dateLabel = w.dateLabel || w.date || '—';
+    const dateLabel = waitlistDateLabel(w);
     const times = w.preferredTimes && w.preferredTimes.length
       ? w.preferredTimes.join(' · ')
       : (w.time || '—');
