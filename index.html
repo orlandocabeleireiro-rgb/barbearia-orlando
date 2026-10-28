@@ -845,7 +845,7 @@
   // Same throwaway-app trick as _fbCreateAdminAccount, for a client created by
   // an admin in the "+ Novo Cliente" modal. If the Firestore write fails, the
   // new login is deleted again so the email doesn't end up stuck.
-  window._fbCreateClientAccount = async function(email, password, clientData) {
+  window._fbCreateClientAccount = async function(email, password, clientData, adminFields) {
     const tempAppName = 'TempClientCreate_' + Date.now() + '_' + Math.random().toString(36).slice(2);
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
@@ -853,7 +853,18 @@
       const cred = await createUserWithEmailAndPassword(tempAuth, email, password);
       const uid  = cred.user.uid;
       try {
-        await setDoc(doc(db, 'clients', uid), { ...clientData, id: uid });
+        try {
+          // Admin's own session writes the whole profile in one go
+          await setDoc(doc(db, 'clients', uid), { ...clientData, ...adminFields, id: uid });
+        } catch (e) {
+          if (e.code !== 'permission-denied') throw e;
+          // The rules may only let a client create its OWN profile (as in the
+          // normal sign-up). So create it as the new user, exactly like
+          // _fbRegister does, then apply the admin fields (e.g. status:'ativo')
+          // through the admin's session, exactly like approveClient does.
+          await setDoc(doc(getFirestore(tempApp), 'clients', uid), { ...clientData, id: uid });
+          await updateDoc(doc(db, 'clients', uid), adminFields);
+        }
       } catch (e) {
         try { await cred.user.delete(); } catch(_) {}
         throw e;
@@ -4538,15 +4549,14 @@ async function saveClient() {
   if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'A criar...'; }
   try {
     const today = new Date().toLocaleDateString('pt-PT');
-    await window._fbCreateClientAccount(email, pass, {
-      nome, apelido, tel, email,
-      registedAt: today, status: 'ativo', approvedAt: today, createdByAdmin: true
-    });
+    await window._fbCreateClientAccount(email, pass,
+      { nome, apelido, tel, email, registedAt: today, status: 'pendente' },
+      { status: 'ativo', approvedAt: today, createdByAdmin: true });
     // Don't also push locally — the 'clients' Firestore listener picks it up
     closeModal('modal-client'); refreshAdmin();
   } catch (err) {
     console.error('Erro ao criar cliente:', err);
-    let msg = 'Não foi possível criar o cliente.';
+    let msg = 'Não foi possível criar o cliente. (Erro técnico: ' + (err.code || err.message || 'desconhecido') + ')';
     if (err.code === 'auth/email-already-in-use') msg = 'Já existe uma conta com este email.';
     if (err.code === 'auth/invalid-email')        msg = 'Email inválido.';
     if (err.code === 'auth/weak-password')         msg = 'Password demasiado fraca.';
