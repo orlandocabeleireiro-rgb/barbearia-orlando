@@ -68,7 +68,7 @@ Os clientes só leem os seus próprios `clients/bookings/waitlist/notifications`
 - **Lista de espera:** ao cancelar uma marcação, `checkAndFillWaitlist` atribui a vaga ao primeiro pedido compatível. Os pedidos de dias passados são resolvidos automaticamente.
 - **Agenda admin:** só deixa recuar até ontem. Clicar num dia passado com marcação abre a forma de pagamento (MBWay/Revolut). É possível marcar falta (`faltou`).
 - **Registo de clientes:** fica `pendente` até aprovação. `approveClient` envia o email de ativação.
-- **Cliente criado no admin** ("+ Novo Cliente"): `window._fbCreateClientAccount` cria o login numa app Firebase temporária (para não mexer na sessão do admin) e grava o perfil já `ativo` com `createdByAdmin: true`. Se a gravação falhar, o login acabado de criar é apagado. Ao editar, o email fica bloqueado porque é o login; só `nome`, `apelido` e `tel` são gravados.
+- **Cliente criado no admin** ("+ Novo Cliente"): `window._fbCreateClientAccount` cria o login numa app Firebase temporária (para não mexer na sessão do admin) e grava o perfil já `ativo` com `createdByAdmin: true`. Se as regras recusarem a gravação pelo admin (`permission-denied`), cria o perfil como o próprio cliente (`status: 'pendente'`, como `_fbRegister`) e ativa-o pela sessão do admin (como `approveClient`). Se o email já tiver um login sem perfil (nem em `clients` nem em `admins`) e a password coincidir, reaproveita-o. Se a gravação falhar, o login acabado de criar é apagado. Ao editar, o email fica bloqueado porque é o login; só `nome`, `apelido` e `tel` são gravados.
 - **Permissões:** um `manager` só vê os separadores incluídos em `permissions` (`applyAdminPermissions`). Um `superadmin` vê tudo.
 
 ## Preferências do Orlando

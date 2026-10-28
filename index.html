@@ -850,7 +850,20 @@
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
     try {
-      const cred = await createUserWithEmailAndPassword(tempAuth, email, password);
+      let cred, recovered = false;
+      try {
+        cred = await createUserWithEmailAndPassword(tempAuth, email, password);
+      } catch (err) {
+        if (err.code !== 'auth/email-already-in-use') throw err;
+        // A login may already exist with no profile behind it (e.g. left over
+        // from an earlier failed attempt). Like _fbRegister, reuse it if the
+        // password matches — but never if it belongs to an admin or a client.
+        try { cred = await signInWithEmailAndPassword(tempAuth, email, password); }
+        catch (_) { throw err; }
+        const uid = cred.user.uid;
+        if ((await getDoc(doc(db, 'admins', uid))).exists() || (await getDoc(doc(db, 'clients', uid))).exists()) throw err;
+        recovered = true;
+      }
       const uid  = cred.user.uid;
       try {
         try {
@@ -866,7 +879,7 @@
           await updateDoc(doc(db, 'clients', uid), adminFields);
         }
       } catch (e) {
-        try { await cred.user.delete(); } catch(_) {}
+        if (!recovered) { try { await cred.user.delete(); } catch(_) {} }
         throw e;
       }
       return uid;
@@ -4557,7 +4570,7 @@ async function saveClient() {
   } catch (err) {
     console.error('Erro ao criar cliente:', err);
     let msg = 'Não foi possível criar o cliente. (Erro técnico: ' + (err.code || err.message || 'desconhecido') + ')';
-    if (err.code === 'auth/email-already-in-use') msg = 'Já existe uma conta com este email.';
+    if (err.code === 'auth/email-already-in-use') msg = 'Já existe uma conta com este email. Se for de uma tentativa anterior que não ficou gravada, escreva a mesma password dessa vez.';
     if (err.code === 'auth/invalid-email')        msg = 'Email inválido.';
     if (err.code === 'auth/weak-password')         msg = 'Password demasiado fraca.';
     showModalErr('modal-client-err', msg);
