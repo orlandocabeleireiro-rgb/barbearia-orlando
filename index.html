@@ -3357,7 +3357,7 @@ function renderBookingTable(tbodyId, rows, withActions, emptyMsg) {
   tb.innerHTML = rows.map(b=>`<tr>
     <td><span class="client-name-link" onclick="showClientContactPopup('${b.clientId||''}')">${displayClientName(b)}</span></td><td>${b.service||'—'}</td><td>${b.barber||'—'}</td>
     <td>${b.date||'—'}</td><td>${b.time||'—'}</td><td>€${fmt(b.price||0)}</td>
-    ${withActions?'<td>'+statusChip(b.status||'confirmada')+'</td><td><div class="btn-actions"><button class="btn-sm btn-edit" data-id="'+b.id+'" onclick="editBooking(this.dataset.id)">Editar</button><button class="btn-sm btn-del" data-id="'+b.id+'" data-name="'+(b.clientName||'')+'" onclick="confirmDeleteBooking(this.dataset.id,this.dataset.name)">Apagar</button></div></td>':''}}
+    ${withActions?'<td>'+statusChip(b.status||'confirmada')+'</td><td><div class="btn-actions"><button class="btn-sm btn-edit" data-id="'+b.id+'" onclick="editBooking(this.dataset.id)">Editar</button><button class="btn-sm btn-del" data-id="'+b.id+'" data-name="'+(b.clientName||'')+'" onclick="confirmDeleteBooking(this.dataset.id,this.dataset.name)">Apagar</button></div></td>':''}
   </tr>`).join('');
 }
 
