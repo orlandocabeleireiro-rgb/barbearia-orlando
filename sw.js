@@ -4,7 +4,7 @@
 // is handled separately by Firestore's own offline cache — this only makes
 // sure the page itself loads.
 
-const CACHE_NAME = 'barbearia-orlando-shell-v1';
+const CACHE_NAME = 'barbearia-orlando-shell-v2';
 const APP_SHELL = [
   './',
   './index.html',
@@ -13,7 +13,8 @@ const APP_SHELL = [
   './icon-512.png',
   './apple-touch-icon.png',
   './favicon-32.png',
-  './favicon-16.png'
+  './favicon-16.png',
+  './logo.jpg'
 ];
 
 self.addEventListener('install', (event) => {
