@@ -16,7 +16,7 @@ Aplicação web de marcações online da **Barbearia Orlando** (Rua Álvaro de C
 - **Firebase** (projeto `barbearia-orlando-c660c`), SDK 10.12.0 carregado por CDN em `<script type="module">`:
   - Firestore, com persistência offline (`enableIndexedDbPersistence`)
   - Authentication (email/password), usado por clientes **e** administradores
-  - Cloud Function `deleteClientAuth` (HTTP, `us-central1`), que apaga contas de login. Foi publicada pelo Google Cloud Shell.
+  - Cloud Function `deleteUserAccount` (Callable/`onCall`, `us-central1`), que apaga contas de login e só aceita pedidos de admins (perfil em `admins`). O código está em `functions/index.js` e publica-se pelo Google Cloud Shell (ver `functions/COMO_PUBLICAR.md`). O site chama-a através de `deleteAuthAccount(uid)`.
 - **EmailJS** (`service_bmptmfn`)
   - `template_v3y5vbg`: conta aprovada
   - `template_1fk81zm`: confirmação de marcação
@@ -78,7 +78,6 @@ Os clientes só leem os seus próprios `clients/bookings/waitlist/notifications`
 
 ## Pontos de atenção
 
-- **Segredo exposto:** `CLOUD_FUNCTION_DELETE_SECRET` está no código do cliente, por isso qualquer pessoa o consegue ler e chamar a função. Convém trocar para uma Callable Function (`onCall`) que verifique se quem chama é admin.
 - **Admins antigos:** ainda existe login legado com `user` + `passHash` (`simpleHash`, inseguro), com sessão em `localStorage` (`bo_admin_session`). Estas contas não conseguem escrever no Firestore (`warnIfPermissionDenied` avisa). O objetivo é migrar todas para Firebase Auth e remover o caminho legado.
 - `firebaseConfig` e a chave pública do EmailJS estarem no código é normal. A segurança depende das regras do Firestore.
 
@@ -86,4 +85,4 @@ Os clientes só leem os seus próprios `clients/bookings/waitlist/notifications`
 
 Não há testes automáticos. Para testar, abre `index.html` num servidor local (ex.: `npx serve`) ou faz push para o GitHub Pages e testa no telemóvel: registo → aprovação no admin → marcação → agenda → cancelamento.
 
-As Cloud Functions publicam-se com o Firebase CLI (`firebase deploy --only functions`). O código delas não está neste ficheiro.
+As Cloud Functions estão em `functions/` e publicam-se com o Firebase CLI (`firebase deploy --only functions`). Ver `functions/COMO_PUBLICAR.md`.

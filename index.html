@@ -508,6 +508,7 @@
   import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
            signOut, onAuthStateChanged, updatePassword, sendPasswordResetEmail
          } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyB8m2GOc6FaZbiNtqBQOgh4OsZhCI9Dnbw",
@@ -521,6 +522,13 @@
   const app  = initializeApp(firebaseConfig);
   const db   = getFirestore(app);
   const auth = getAuth(app);
+  const fns  = getFunctions(app, 'us-central1');
+
+  // Apaga a conta de login (Firebase Auth) de um cliente ou admin através da
+  // Cloud Function deleteUserAccount (functions/index.js). A função confirma
+  // do lado do servidor que quem pede é administrador.
+  const deleteUserAccountFn = httpsCallable(fns, 'deleteUserAccount');
+  window._fbDeleteAuthAccount = (uid) => deleteUserAccountFn({ uid });
 
   // Offline support: keeps a local copy of everything already loaded (clients,
   // bookings, services, etc.) on the device itself. If the internet drops,
@@ -2302,11 +2310,7 @@ function deleteAdmin(id) {
   // Also remove the underlying Firebase Auth login, reusing the same Cloud
   // Function already deployed for deleting client accounts (it just needs a uid).
   if (removed?.authType === 'firebase') {
-    fetch(CLOUD_FUNCTION_DELETE_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uid: id, secret: CLOUD_FUNCTION_DELETE_SECRET })
-    }).catch(err => console.warn('Cloud Function deleteClientAuth indisponível:', err));
+    deleteAuthAccount(id);
   }
   closeModal('modal-confirm'); refreshAdmin();
 }
@@ -4554,10 +4558,14 @@ function saveClient() {
   saveDB(); closeModal('modal-client'); refreshAdmin();
 }
 
-// Set this to the same secret you put in functions/index.js (ADMIN_DELETE_SECRET).
-// See firebase-functions/COMO_INSTALAR.md for how to deploy the Cloud Function.
-const CLOUD_FUNCTION_DELETE_SECRET = "orlando-bo-7f3k9x2m-2026";
-const CLOUD_FUNCTION_DELETE_URL = "https://us-central1-barbearia-orlando-c660c.cloudfunctions.net/deleteClientAuth";
+// Apaga a conta de login de um cliente/admin, para o email voltar a poder ser
+// usado. Se a Cloud Function falhar, a app continua a funcionar e fica só um
+// aviso na consola. Ver functions/COMO_PUBLICAR.md.
+function deleteAuthAccount(uid) {
+  if (!window._fbDeleteAuthAccount) return;
+  window._fbDeleteAuthAccount(uid)
+    .catch(err => console.warn('Cloud Function deleteUserAccount falhou:', err));
+}
 
 function deleteClient(id) {
   DB.clients=DB.clients.filter(c=>c.id!==id);
@@ -4570,14 +4578,8 @@ function deleteClient(id) {
   });
 
   // Also delete the Firebase Auth account (email/password) via Cloud Function,
-  // so the email becomes reusable right away. If the function isn't deployed
-  // yet, this just fails silently and the app keeps working as before —
-  // see firebase-functions/COMO_INSTALAR.md to set it up.
-  fetch(CLOUD_FUNCTION_DELETE_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ uid: id, secret: CLOUD_FUNCTION_DELETE_SECRET })
-  }).catch(err => console.warn('Cloud Function deleteClientAuth indisponível:', err));
+  // so the email becomes reusable right away.
+  deleteAuthAccount(id);
 
   closeModal('modal-confirm'); refreshAdmin();
 }
@@ -4736,11 +4738,7 @@ async function saveBarber() {
     DB.admins = DB.admins.filter(a=>a.id!==existingLinkedAdmin.id);
     fsDel('admins', existingLinkedAdmin.id);
     if (existingIsFirebase) {
-      fetch(CLOUD_FUNCTION_DELETE_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid: existingLinkedAdmin.id, secret: CLOUD_FUNCTION_DELETE_SECRET })
-      }).catch(err => console.warn('Cloud Function deleteClientAuth indisponível:', err));
+      deleteAuthAccount(existingLinkedAdmin.id);
     }
   }
 
