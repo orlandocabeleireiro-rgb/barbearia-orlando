@@ -81,7 +81,6 @@ Os clientes só leem os seus próprios `clients/bookings/waitlist/notifications`
 - **Segredo exposto:** `CLOUD_FUNCTION_DELETE_SECRET` está no código do cliente, por isso qualquer pessoa o consegue ler e chamar a função. Convém trocar para uma Callable Function (`onCall`) que verifique se quem chama é admin.
 - **Admins antigos:** ainda existe login legado com `user` + `passHash` (`simpleHash`, inseguro), com sessão em `localStorage` (`bo_admin_session`). Estas contas não conseguem escrever no Firestore (`warnIfPermissionDenied` avisa). O objetivo é migrar todas para Firebase Auth e remover o caminho legado.
 - **Logótipo** embutido em base64 **duas vezes** (header e ecrã de login), o que torna o ficheiro muito pesado. Convém passá-lo para um ficheiro `logo.jpg`.
-- Bug menor em `renderBookingTable`: o template termina em `''}}`, o que imprime uma `}` a mais na tabela de marcações.
 - `firebaseConfig` e a chave pública do EmailJS estarem no código é normal. A segurança depende das regras do Firestore.
 
 ## Como testar
