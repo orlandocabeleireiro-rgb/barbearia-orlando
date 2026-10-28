@@ -573,7 +573,6 @@
 
     onSnapshot(collection(db,'admins'), snap => {
       DB.admins = snap.docs.map(d => ({id:d.id,...d.data()}));
-      tryRestoreAdminSession();
       // Keep the Admins tab (and anywhere else depending on this list) in
       // sync even if this snapshot arrives after the page already rendered —
       // e.g. on a brand-new device where the very first snapshot can lag
@@ -855,9 +854,7 @@
   window._fbInit = async function() {
     await seedIfEmpty();
     startListeners();
-    // Auth state observer handles client session restore automatically.
-    // Admin sessions (not Firebase Auth) are restored separately via localStorage.
-    if (typeof tryRestoreAdminSession === 'function') tryRestoreAdminSession();
+    // Auth state observer restores both client and admin sessions automatically.
   };
 
   // Safe no-op fallback (the loading spinner element may or may not exist)
@@ -1873,14 +1870,8 @@ function warnIfPermissionDenied(e) {
   if (code === 'permission-denied' || msg.includes('permission') || msg.includes('insufficient')) {
     _permissionWarningShown = true;
     const errorRef = code || msg || 'desconhecido';
-    if (currentUser.authType !== 'firebase') {
-      // A genuinely legacy (non-Firebase) admin account — this is the expected cause.
-      alert('⚠️ ATENÇÃO: Não foi possível guardar esta alteração na base de dados!\n\nA conta com que tens sessão iniciada é uma conta antiga, sem um login seguro — a app deixa-te continuar a trabalhar no ecrã, mas nada do que fizeres agora está realmente a ser guardado.\n\nPor favor, sai e volta a entrar com uma conta de administrador com email (as marcadas com 🔒 na lista de Admins), e repete o que estavas a fazer.\n\n(Erro técnico: ' + errorRef + ')');
-    } else {
-      // A properly migrated account hit this too — not the usual cause, so
-      // say so plainly and suggest the most common real fix (stale session).
-      alert('⚠️ ATENÇÃO: Não foi possível guardar esta alteração na base de dados!\n\nA tua conta está corretamente configurada (login seguro), por isso isto não é o problema habitual das contas antigas — é provavelmente um problema pontual de ligação ou uma sessão que precisa de ser renovada.\n\nPor favor, sai e volta a entrar, confirma que tens internet, e repete o que estavas a fazer. Se isto continuar a acontecer com esta conta, avisa o Orlando com o erro técnico abaixo para ele poder investigar.\n\n(Erro técnico: ' + errorRef + ')');
-    }
+    // Most common real cause: a connection blip or a session that needs renewing.
+    alert('⚠️ ATENÇÃO: Não foi possível guardar esta alteração na base de dados!\n\nÉ provavelmente um problema pontual de ligação ou uma sessão que precisa de ser renovada.\n\nPor favor, sai e volta a entrar, confirma que tens internet, e repete o que estavas a fazer. Se isto continuar a acontecer com esta conta, avisa o Orlando com o erro técnico abaixo para ele poder investigar.\n\n(Erro técnico: ' + errorRef + ')');
   }
 }
 async function fsAdd(col, data) {
@@ -2146,10 +2137,8 @@ function renderAdminsTable() {
       : ((a.permissions&&a.permissions.length) ? a.permissions.map(k=>PERM_AREAS.find(p=>p.key===k)?.label||k).join(', ') : '— nenhuma —');
     const barberLink = a.barberId ? DB.barbers.find(br=>br.id===a.barberId) : null;
     const barberBadge = barberLink ? ` <span class="chip chip-blue" style="font-size:9px">💈 ${barberLink.name}</span>` : '';
-    const loginLabel = a.authType==='firebase' ? (a.email||'') : (a.user||'');
-    const authBadge = a.authType==='firebase'
-      ? ' <span class="chip chip-gold" style="font-size:9px" title="Conta segura (Firebase Auth)">🔒</span>'
-      : ' <span class="chip" style="font-size:9px;background:rgba(224,92,92,.15);color:#e08a8a" title="Sistema antigo — recomenda-se recriar esta conta">⚠️ antigo</span>';
+    const loginLabel = a.email||'';
+    const authBadge = ' <span class="chip chip-gold" style="font-size:9px" title="Conta segura (Firebase Auth)">🔒</span>';
     return `<tr>
     <td><strong>${loginLabel}</strong>${authBadge}${barberBadge}</td>
     <td>${a.nome}</td>
@@ -2208,17 +2197,16 @@ function toggleBarberAdminAccess(checked) {
 
 function editAdmin(id) {
   const a=DB.admins.find(x=>x.id===id); if(!a) return;
-  const isFirebase = a.authType === 'firebase';
   document.getElementById('modal-admin-title').textContent='Editar Administrador';
   document.getElementById('mad-id').value=id;
   document.getElementById('mad-nome').value=a.nome;
   const userField = document.getElementById('mad-user');
-  userField.value = isFirebase ? (a.email||'') : (a.user||'');
-  userField.disabled = isFirebase; // email can't be changed here once the Firebase account exists
+  userField.value = a.email||'';
+  userField.disabled = true; // email can't be changed here once the Firebase account exists
   document.getElementById('mad-pass').value='';
-  document.getElementById('mad-pass-wrap').style.display = isFirebase ? 'none' : 'block';
-  document.getElementById('mad-reset-note').style.display = isFirebase ? 'block' : 'none';
-  document.getElementById('mad-reset-btn').style.display  = isFirebase ? 'inline-block' : 'none';
+  document.getElementById('mad-pass-wrap').style.display = 'none';
+  document.getElementById('mad-reset-note').style.display = 'block';
+  document.getElementById('mad-reset-btn').style.display  = 'inline-block';
   document.getElementById('mad-level').value=a.level;
   renderAdminPermsChecklist(a.permissions);
   toggleAdminLevelUI(a.level);
@@ -2238,16 +2226,9 @@ async function saveAdmin() {
     // Editing an existing admin
     const a = DB.admins.find(x=>x.id===id);
     if (!a) return;
-    if (a.authType === 'firebase') {
-      a.nome = nome; a.level = level; a.permissions = permissions;
-      // Email/password intentionally not editable here — use the reset-link button for password
-      await fsUpdate('admins', id, { nome, level, permissions });
-    } else {
-      a.nome=nome; a.user=emailOrUser; a.level=level; a.permissions=permissions;
-      if (pass.length>=6) a.passHash=simpleHash(pass);
-      else if (!a.passHash) { showModalErr('modal-admin-err','Password obrigatória.'); return; }
-      await fsUpdate('admins', id, a);
-    }
+    a.nome = nome; a.level = level; a.permissions = permissions;
+    // Email/password intentionally not editable here — use the reset-link button for password
+    await fsUpdate('admins', id, { nome, level, permissions });
     closeModal('modal-admin'); refreshAdmin();
     return;
   }
@@ -2255,7 +2236,7 @@ async function saveAdmin() {
   // Creating a brand-new admin always uses the new Firebase Auth system
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailOrUser)) { showModalErr('modal-admin-err','Escreva um email válido.'); return; }
   if (pass.length<6) { showModalErr('modal-admin-err','Password com mínimo 6 caracteres.'); return; }
-  if (DB.admins.find(a=>(a.user||a.email)===emailOrUser)) { showModalErr('modal-admin-err','Já existe um administrador com este email.'); return; }
+  if (DB.admins.find(a=>a.email===emailOrUser)) { showModalErr('modal-admin-err','Já existe um administrador com este email.'); return; }
   if (!window._fbCreateAdminAccount) { showModalErr('modal-admin-err','Sistema de autenticação ainda não está pronto. Tenta novamente em instantes.'); return; }
 
   const saveBtn = document.querySelector('#modal-admin .btn-save');
@@ -2309,9 +2290,7 @@ function deleteAdmin(id) {
   fsDel('admins',id);
   // Also remove the underlying Firebase Auth login, reusing the same Cloud
   // Function already deployed for deleting client accounts (it just needs a uid).
-  if (removed?.authType === 'firebase') {
-    deleteAuthAccount(id);
-  }
+  if (removed) deleteAuthAccount(id);
   closeModal('modal-confirm'); refreshAdmin();
 }
 
@@ -2998,7 +2977,6 @@ async function doAdminLogin() {
   const btn = document.querySelector('#form-admin .btn-full');
   if (btn) { btn.disabled = true; btn.textContent = 'A entrar...'; }
 
-  // Try the new Firebase Auth-based system first (identifier treated as an email)
   if (window._fbAdminLogin) {
     try {
       const profile = await window._fbAdminLogin(identifier, pass);
@@ -3009,50 +2987,11 @@ async function doAdminLogin() {
       if (btn) { btn.disabled = false; btn.textContent = 'Aceder ao Painel →'; }
       return;
     } catch (e) {
-      // Not a Firebase-based admin account (or wrong password) — try the legacy system below
+      // Wrong email/password, or a Firebase account without an admins/{uid} profile
     }
-  }
-
-  // Legacy fallback — accounts created before the Firebase Auth migration
-  const adm=DB.admins.find(a=>a.user===identifier && a.passHash===simpleHash(pass));
-  if (adm) {
-    currentUser={ id:adm.id, nome:adm.nome, isAdmin:true, level:adm.level, permissions:adm.permissions };
-    window.currentUser=currentUser;
-    window._startUserScopedListeners?.(true, adm.id);
-    saveAdminSession(currentUser.id);
-    showApp('admin');
-    if (btn) { btn.disabled = false; btn.textContent = 'Aceder ao Painel →'; }
-    return;
   }
   if (btn) { btn.disabled = false; btn.textContent = 'Aceder ao Painel →'; }
   showAAlert('al-admin','Credenciais incorretas.');
-}
-
-// ── Admin session persistence (so a page refresh doesn't require logging in again) ──
-function saveAdminSession(adminId) {
-  try { localStorage.setItem('bo_admin_session', JSON.stringify({ id: adminId })); } catch(e) {}
-}
-function clearAdminSession() {
-  try { localStorage.removeItem('bo_admin_session'); } catch(e) {}
-}
-let _adminSessionRestored = false;
-function tryRestoreAdminSession() {
-  if (_adminSessionRestored || currentUser) return;
-  let sess;
-  try { sess = JSON.parse(localStorage.getItem('bo_admin_session') || 'null'); } catch(e) { sess = null; }
-  if (!sess?.id) return;
-
-  // Needs DB.admins to have loaded from Firestore first. If it hasn't arrived
-  // yet, this silently does nothing and will be retried automatically when
-  // the 'admins' listener delivers its first batch.
-  const adm = DB.admins.find(a => a.id === sess.id);
-  if (adm) {
-    currentUser = { id:adm.id, nome:adm.nome, isAdmin:true, level:adm.level, permissions:adm.permissions };
-    window.currentUser = currentUser;
-    window._startUserScopedListeners?.(true, adm.id);
-    _adminSessionRestored = true;
-    showApp('admin');
-  }
 }
 
 function loginAs(c) {
@@ -3139,11 +3078,12 @@ async function logout() {
   if (currentUser && !currentUser.isAdmin && window._fauth) {
     try { await window._fauth.signOut(window._auth); } catch(e){}
   }
-  // Sign out from the separate admin Firebase Auth session, if that's how this admin signed in
-  if (currentUser && currentUser.isAdmin && currentUser.authType === 'firebase' && window._fbAdminLogout) {
+  // Sign out from the admin Firebase Auth session
+  if (currentUser && currentUser.isAdmin && window._fbAdminLogout) {
     try { await window._fbAdminLogout(); } catch(e){}
   }
-  clearAdminSession();
+  // Leftover from the old admin login system — clear it on devices that still have it
+  try { localStorage.removeItem('bo_admin_session'); } catch(e) {}
   window._stopUserScopedListeners?.();
   currentUser=null;
   window.currentUser=null;
@@ -4633,15 +4573,14 @@ function editBarber(id) {
 
   // Admin access (if this barber already has a linked admin login)
   const linkedAdmin = DB.admins.find(a => a.barberId === id);
-  const linkedIsFirebase = linkedAdmin?.authType === 'firebase';
   document.getElementById('mbr-adm-enable').checked = !!linkedAdmin;
   document.getElementById('mbr-adm-wrap').style.display = linkedAdmin ? 'block' : 'none';
-  document.getElementById('mbr-adm-user').value = linkedAdmin ? (linkedAdmin.email || linkedAdmin.user || '') : '';
-  document.getElementById('mbr-adm-user').disabled = linkedIsFirebase;
+  document.getElementById('mbr-adm-user').value = linkedAdmin ? (linkedAdmin.email || '') : '';
+  document.getElementById('mbr-adm-user').disabled = !!linkedAdmin;
   document.getElementById('mbr-adm-pass').value = '';
-  document.getElementById('mbr-adm-pass-wrap').style.display = linkedIsFirebase ? 'none' : 'block';
-  document.getElementById('mbr-adm-reset-note').style.display = linkedIsFirebase ? 'block' : 'none';
-  document.getElementById('mbr-adm-reset-btn').style.display  = linkedIsFirebase ? 'inline-block' : 'none';
+  document.getElementById('mbr-adm-pass-wrap').style.display = linkedAdmin ? 'none' : 'block';
+  document.getElementById('mbr-adm-reset-note').style.display = linkedAdmin ? 'block' : 'none';
+  document.getElementById('mbr-adm-reset-btn').style.display  = linkedAdmin ? 'inline-block' : 'none';
   renderPermsChecklist('mbr-adm-perms', linkedAdmin ? linkedAdmin.permissions : null, false);
 
   clearModalErr('modal-barber-err');
@@ -4669,7 +4608,6 @@ async function saveBarber() {
 
   const wantsAdmin = document.getElementById('mbr-adm-enable').checked;
   const existingLinkedAdmin = id ? DB.admins.find(a=>a.barberId===id) : null;
-  const existingIsFirebase = existingLinkedAdmin?.authType === 'firebase';
 
   let adminEmail, adminPass, adminPerms;
   if (wantsAdmin) {
@@ -4681,10 +4619,8 @@ async function saveBarber() {
     if (!existingLinkedAdmin) {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) { showModalErr('modal-barber-err','Escreva um email válido.'); return; }
       if (adminPass.length<6) { showModalErr('modal-barber-err','Defina uma password (mínimo 6 caracteres) para o acesso de administrador.'); return; }
-      const userTaken = DB.admins.find(a=>(a.user||a.email)===adminEmail);
+      const userTaken = DB.admins.find(a=>a.email===adminEmail);
       if (userTaken) { showModalErr('modal-barber-err','Já existe um administrador com este email.'); return; }
-    } else if (!existingIsFirebase && adminPass.length>0 && adminPass.length<6) {
-      showModalErr('modal-barber-err','Password com mínimo 6 caracteres.'); return;
     }
   }
 
@@ -4706,14 +4642,8 @@ async function saveBarber() {
     if (existingLinkedAdmin) {
       existingLinkedAdmin.nome = name;
       existingLinkedAdmin.permissions = adminPerms;
-      if (existingIsFirebase) {
-        // Email/password not editable here for Firebase-based accounts — only profile fields
-        await fsUpdate('admins', existingLinkedAdmin.id, { nome:name, permissions:adminPerms });
-      } else {
-        existingLinkedAdmin.user = adminEmail;
-        if (adminPass.length>=6) existingLinkedAdmin.passHash = simpleHash(adminPass);
-        await fsUpdate('admins', existingLinkedAdmin.id, existingLinkedAdmin);
-      }
+      // Email/password not editable here — only profile fields
+      await fsUpdate('admins', existingLinkedAdmin.id, { nome:name, permissions:adminPerms });
     } else if (window._fbCreateAdminAccount) {
       const saveBtn = document.querySelector('#modal-barber .btn-save');
       if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'A criar...'; }
@@ -4737,9 +4667,7 @@ async function saveBarber() {
     // Access checkbox was unchecked — remove the linked admin login entirely
     DB.admins = DB.admins.filter(a=>a.id!==existingLinkedAdmin.id);
     fsDel('admins', existingLinkedAdmin.id);
-    if (existingIsFirebase) {
-      deleteAuthAccount(existingLinkedAdmin.id);
-    }
+    deleteAuthAccount(existingLinkedAdmin.id);
   }
 
   invalidateBusy && Object.keys(BUSY||{}).forEach(k=>delete BUSY[k]);

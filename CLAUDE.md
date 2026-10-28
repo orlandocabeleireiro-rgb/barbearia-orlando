@@ -44,7 +44,7 @@ O objeto `DB` (`clients`, `bookings`, `admins`, `waitlist`, `services`, `barbers
 | Coleção | Conteúdo | Notas |
 |---|---|---|
 | `clients` | perfil do cliente (id = UID do Auth) | `status`: `pendente` / `ativo` / `rejeitado`; objeto `gdpr` |
-| `admins` | perfis de admin (id = UID do Auth) | `level`: `superadmin` / `manager`; `permissions[]`; `barberId` opcional; `authType: 'firebase'` (as contas antigas não têm este campo) |
+| `admins` | perfis de admin (id = UID do Auth) | `level`: `superadmin` / `manager`; `permissions[]`; `barberId` opcional; `authType: 'firebase'`. Todos os admins entram com email (Firebase Auth); o login antigo com `user` + `passHash` foi removido |
 | `bookings` | marcações | `rawDate` (AAAA-MM-DD), `time`, `serviceId`, `barberId`, `status` (`confirmada`, `pendente`, `cancelada`, `faltou`), `clientPreference` (`com`/`sem`), `bookedVia` (`client`/`admin`), `paymentMethod`, `recur`/`recurGroup` |
 | `busy_slots` | horários ocupados, **sem dados pessoais** | id = `barberId_data_hora`. É isto que os clientes leem para ver a disponibilidade |
 | `waitlist` | lista de espera | `preferredTimes[]`, `status` (`pendente`/`resolvido`) |
@@ -78,7 +78,7 @@ Os clientes só leem os seus próprios `clients/bookings/waitlist/notifications`
 
 ## Pontos de atenção
 
-- **Admins antigos:** ainda existe login legado com `user` + `passHash` (`simpleHash`, inseguro), com sessão em `localStorage` (`bo_admin_session`). Estas contas não conseguem escrever no Firestore (`warnIfPermissionDenied` avisa). O objetivo é migrar todas para Firebase Auth e remover o caminho legado.
+- **Criar cliente no admin:** `saveClient()` (cliente novo) ainda é da versão antiga: faz `DB.clients.push` com `passHash`/`simpleHash` e `saveDB()`, que não faz nada, por isso o cliente não é gravado no Firestore nem ganha login. Os clientes registam-se pelo site.
 - `firebaseConfig` e a chave pública do EmailJS estarem no código é normal. A segurança depende das regras do Firestore.
 
 ## Como testar
