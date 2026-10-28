@@ -68,6 +68,7 @@ Os clientes só leem os seus próprios `clients/bookings/waitlist/notifications`
 - **Lista de espera:** ao cancelar uma marcação, `checkAndFillWaitlist` atribui a vaga ao primeiro pedido compatível. Os pedidos de dias passados são resolvidos automaticamente.
 - **Agenda admin:** só deixa recuar até ontem. Clicar num dia passado com marcação abre a forma de pagamento (MBWay/Revolut). É possível marcar falta (`faltou`).
 - **Registo de clientes:** fica `pendente` até aprovação. `approveClient` envia o email de ativação.
+- **Cliente criado no admin** ("+ Novo Cliente"): `window._fbCreateClientAccount` cria o login numa app Firebase temporária (para não mexer na sessão do admin) e grava o perfil já `ativo` com `createdByAdmin: true`. Se a gravação falhar, o login acabado de criar é apagado. Ao editar, o email fica bloqueado porque é o login; só `nome`, `apelido` e `tel` são gravados.
 - **Permissões:** um `manager` só vê os separadores incluídos em `permissions` (`applyAdminPermissions`). Um `superadmin` vê tudo.
 
 ## Preferências do Orlando
@@ -78,7 +79,6 @@ Os clientes só leem os seus próprios `clients/bookings/waitlist/notifications`
 
 ## Pontos de atenção
 
-- **Criar cliente no admin:** `saveClient()` (cliente novo) ainda é da versão antiga: faz `DB.clients.push` com `passHash`/`simpleHash` e `saveDB()`, que não faz nada, por isso o cliente não é gravado no Firestore nem ganha login. Os clientes registam-se pelo site.
 - `firebaseConfig` e a chave pública do EmailJS estarem no código é normal. A segurança depende das regras do Firestore.
 
 ## Como testar

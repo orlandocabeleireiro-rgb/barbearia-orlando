@@ -842,6 +842,28 @@
     }
   };
 
+  // Same throwaway-app trick as _fbCreateAdminAccount, for a client created by
+  // an admin in the "+ Novo Cliente" modal. If the Firestore write fails, the
+  // new login is deleted again so the email doesn't end up stuck.
+  window._fbCreateClientAccount = async function(email, password, clientData) {
+    const tempAppName = 'TempClientCreate_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    const tempApp = initializeApp(firebaseConfig, tempAppName);
+    const tempAuth = getAuth(tempApp);
+    try {
+      const cred = await createUserWithEmailAndPassword(tempAuth, email, password);
+      const uid  = cred.user.uid;
+      try {
+        await setDoc(doc(db, 'clients', uid), { ...clientData, id: uid });
+      } catch (e) {
+        try { await cred.user.delete(); } catch(_) {}
+        throw e;
+      }
+      return uid;
+    } finally {
+      try { await deleteApp(tempApp); } catch(e) { /* best effort cleanup */ }
+    }
+  };
+
   // Sends a "reset your password" email for an existing admin account — the
   // client-side SDK has no way to directly set someone else's password
   // (that needs the Admin SDK / a Cloud Function), so this is the correct,
@@ -1613,6 +1635,7 @@
       <div class="mf"><label>Apelido</label><input type="text" id="mc-apelido" placeholder="Apelido do cliente"></div>
     </div>
     <div class="mf"><label>Email</label><input type="email" id="mc-email" placeholder="Email do cliente"></div>
+    <div id="mc-email-note" style="display:none;font-size:12px;color:var(--muted);margin:-6px 0 14px">ℹ️ O email é o login do cliente e não pode ser alterado por aqui.</div>
     <div class="mf"><label>Telemóvel</label><input type="tel" id="mc-tel" placeholder="Telemóvel do cliente"></div>
     <div class="mf" id="mc-pass-wrap"><label>Password</label><input type="password" id="mc-pass" placeholder="Mínimo 6 caracteres"></div>
     <div class="modal-actions">
@@ -2308,7 +2331,6 @@ function togglePass(id, btn) {
     : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
 }
 
-function simpleHash(s) { let h=0; for(let i=0;i<s.length;i++) h=(Math.imul(31,h)+s.charCodeAt(i))|0; return h.toString(16); }
 // UID: timestamp + random for uniqueness without counter
 
 // ═══════════════════════════════════════════
@@ -4016,6 +4038,8 @@ function openModal(type) {
     document.getElementById('modal-client-title').textContent='Novo Cliente';
     document.getElementById('mc-id').value='';
     ['mc-nome','mc-apelido','mc-email','mc-tel','mc-pass'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('mc-email').disabled=false;
+    document.getElementById('mc-email-note').style.display='none';
     document.getElementById('mc-pass-wrap').style.display='block';
     clearModalErr('modal-client-err');
     document.getElementById('modal-client')?.classList.add('open');
@@ -4476,6 +4500,8 @@ function editClient(id) {
   document.getElementById('mc-nome').value=c.nome;
   document.getElementById('mc-apelido').value=c.apelido;
   document.getElementById('mc-email').value=c.email;
+  document.getElementById('mc-email').disabled=true; // it's the client's login — can't be changed from the client side
+  document.getElementById('mc-email-note').style.display='block';
   document.getElementById('mc-tel').value=c.tel;
   document.getElementById('mc-pass').value='';
   document.getElementById('mc-pass-wrap').style.display='none'; // don't force password on edit
@@ -4483,19 +4509,51 @@ function editClient(id) {
   document.getElementById('modal-client')?.classList.add('open');
 }
 
-function saveClient() {
+async function saveClient() {
   const id=v('mc-id'), nome=v('mc-nome').trim(), apelido=v('mc-apelido').trim();
   const email=v('mc-email').trim().toLowerCase(), tel=v('mc-tel').trim(), pass=v('mc-pass');
   if (!nome||!apelido||!email||!tel) { showModalErr('modal-client-err','Preencha todos os campos.'); return; }
+  const saveBtn = document.querySelector('#modal-client .btn-save');
+
   if (id) {
-    const c=DB.clients.find(x=>x.id===id);
-    c.nome=nome; c.apelido=apelido; c.email=email; c.tel=tel;
-  } else {
-    if (pass.length<6) { showModalErr('modal-client-err','Password com mínimo 6 caracteres.'); return; }
-    if (DB.clients.find(c=>c.email===email)) { showModalErr('modal-client-err','Email já existe.'); return; }
-    DB.clients.push({ id:uid('c'), nome, apelido, tel, email, passHash:simpleHash(pass), registedAt:new Date().toLocaleDateString('pt-PT') });
+    const c=DB.clients.find(x=>x.id===id); if(!c) return;
+    try {
+      await fsUpdate('clients', id, { nome, apelido, tel });
+    } catch (e) {
+      console.error('Erro ao guardar cliente:', e);
+      showModalErr('modal-client-err','Não foi possível guardar as alterações. Confirma que tens internet e tenta outra vez.');
+      return;
+    }
+    c.nome=nome; c.apelido=apelido; c.tel=tel;
+    closeModal('modal-client'); refreshAdmin();
+    return;
   }
-  saveDB(); closeModal('modal-client'); refreshAdmin();
+
+  // New client — creates a real login (Firebase Auth) and an already-active profile
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showModalErr('modal-client-err','Escreva um email válido.'); return; }
+  if (pass.length<6) { showModalErr('modal-client-err','Password com mínimo 6 caracteres.'); return; }
+  if (DB.clients.find(c=>c.email===email)) { showModalErr('modal-client-err','Email já existe.'); return; }
+  if (!window._fbCreateClientAccount) { showModalErr('modal-client-err','Sistema de autenticação ainda não está pronto. Tenta novamente em instantes.'); return; }
+
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'A criar...'; }
+  try {
+    const today = new Date().toLocaleDateString('pt-PT');
+    await window._fbCreateClientAccount(email, pass, {
+      nome, apelido, tel, email,
+      registedAt: today, status: 'ativo', approvedAt: today, createdByAdmin: true
+    });
+    // Don't also push locally — the 'clients' Firestore listener picks it up
+    closeModal('modal-client'); refreshAdmin();
+  } catch (err) {
+    console.error('Erro ao criar cliente:', err);
+    let msg = 'Não foi possível criar o cliente.';
+    if (err.code === 'auth/email-already-in-use') msg = 'Já existe uma conta com este email.';
+    if (err.code === 'auth/invalid-email')        msg = 'Email inválido.';
+    if (err.code === 'auth/weak-password')         msg = 'Password demasiado fraca.';
+    showModalErr('modal-client-err', msg);
+  } finally {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Guardar'; }
+  }
 }
 
 // Apaga a conta de login de um cliente/admin, para o email voltar a poder ser
