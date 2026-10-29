@@ -1145,10 +1145,10 @@
     <button class="admin-tab" data-view="services" onclick="showAdminView('services')">✂️ Serviços</button>
     <button class="admin-tab" data-view="barbers" onclick="showAdminView('barbers')">💈 Barbeiros</button>
     <button class="admin-tab" data-view="admins" onclick="showAdminView('admins')">🔐 Admins</button>
-    <button class="admin-tab" data-view="waitlist" onclick="showAdminView('waitlist')">⏳ Lista de Espera</button>
+    <button class="admin-tab" data-view="waitlist" onclick="showAdminView('waitlist')">⏳ Lista de Espera<span class="tab-badge" id="waitlist-tab-badge"></span></button>
     <button class="admin-tab" data-view="closures" onclick="showAdminView('closures')">🔒 Fechados</button>
     <button class="admin-tab" data-view="extrahours" onclick="showAdminView('extrahours')">⏰ Extra</button>
-    <button class="admin-tab" data-view="notificacoes" onclick="showAdminView('notificacoes')">🔔 Notificações</button>
+    <button class="admin-tab" data-view="notificacoes" onclick="showAdminView('notificacoes')">🔔 Notificações<span class="tab-badge" id="notif-tab-badge"></span></button>
   </div>
 
   <!-- Overview -->
@@ -2514,6 +2514,7 @@ function renderWaitlistTable() {
 
   const badge = document.getElementById('waitlist-count-badge');
   if (badge) badge.textContent = pending.length ? `${pending.length} pendente${pending.length>1?'s':''}` : '';
+  setTabBadge('waitlist-tab-badge', pending.length);
 
   if (!pending.length) {
     tb.innerHTML = '<tr class="empty-row"><td colspan="8">Nenhum pedido na lista de espera.</td></tr>';
@@ -3240,6 +3241,14 @@ function applyBookingPauseUI() {
   }
 }
 
+// Red number on an admin tab (Clientes, Lista de Espera, Notificações)
+function setTabBadge(id, count) {
+  const badge = document.getElementById(id);
+  if (!badge) return;
+  badge.textContent = count > 9 ? '9+' : String(count);
+  badge.classList.toggle('show', count > 0);
+}
+
 function refreshAdmin() {
   if (document.getElementById('admin-screen')?.style.display === 'none') return;
   // Keep the agenda grid in sync too (it isn't one of the tables below)
@@ -3250,11 +3259,7 @@ function refreshAdmin() {
   set('st-clients',  DB.clients.length);
   const pending=DB.clients.filter(c=>c.status==='pendente').length;
   set('st-clients-sub', pending>0?`⚠️ ${pending} pendente${pending>1?'s':''}`:'registados');
-  const clientsBadge = document.getElementById('clients-tab-badge');
-  if (clientsBadge) {
-    clientsBadge.textContent = pending > 9 ? '9+' : String(pending);
-    clientsBadge.classList.toggle('show', pending > 0);
-  }
+  setTabBadge('clients-tab-badge', pending);
   set('st-services', DB.services.length);
   set('st-admins',   DB.admins.length);
 
@@ -5643,6 +5648,7 @@ function updateNotifBadge() {
   const badge = document.getElementById('notif-badge');
   if (!badge) return;
   const cnt = unreadCount();
+  if (currentUser?.isAdmin) setTabBadge('notif-tab-badge', cnt);
   if (cnt > 0) {
     badge.textContent = cnt > 9 ? '9+' : cnt;
     badge.classList.add('show');
