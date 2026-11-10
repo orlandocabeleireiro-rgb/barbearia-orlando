@@ -5281,7 +5281,10 @@ async function goStep(n){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
-// Generates a downloadable .ics file so the client can add the booking to their own phone/calendar app
+// Adds the booking to the client's own calendar. On Android, opens Google
+// Calendar with the event pre-filled (Android has no default handler for
+// .ics files, so a download just lands in Transferências). Everywhere else
+// (iPhone, computer), downloads an .ics file, which opens in the calendar app.
 function addToDeviceCalendar() {
   if (!bState.date || !bState.time) return;
 
@@ -5308,6 +5311,19 @@ function addToDeviceCalendar() {
     'Barbeiro: ' + (bState.barberName || ''),
     'Preço: €' + fmt(bState.servicePrice)
   ];
+
+  if (/Android/i.test(navigator.userAgent)) {
+    const params = new URLSearchParams({
+      action:   'TEMPLATE',
+      text:     title,
+      dates:    toICSDate(start) + '/' + toICSDate(end),
+      ctz:      'Europe/Lisbon',
+      details:  descLines.join('\n'),
+      location: 'Barbearia Orlando'
+    });
+    window.open('https://calendar.google.com/calendar/render?' + params.toString(), '_blank');
+    return;
+  }
 
   const ics = [
     'BEGIN:VCALENDAR',
