@@ -43,7 +43,7 @@ O objeto `DB` (`clients`, `bookings`, `admins`, `waitlist`, `services`, `barbers
 
 | Coleção | Conteúdo | Notas |
 |---|---|---|
-| `clients` | perfil do cliente (id = UID do Auth) | `status`: `pendente` / `ativo` / `rejeitado`; objeto `gdpr` |
+| `clients` | perfil do cliente (id = UID do Auth) | `status`: `pendente` / `ativo` / `rejeitado`; objeto `gdpr`; `lastSeenAt` (ms, gravado pelo próprio cliente ao abrir a app, no máximo a cada 6 h) |
 | `admins` | perfis de admin (id = UID do Auth) | `level`: `superadmin` / `manager`; `permissions[]`; `barberId` opcional; `authType: 'firebase'`. Todos os admins entram com email (Firebase Auth); o login antigo com `user` + `passHash` foi removido |
 | `bookings` | marcações | `rawDate` (AAAA-MM-DD), `time`, `serviceId`, `barberId`, `status` (`confirmada`, `pendente`, `cancelada`, `faltou`), `clientPreference` (`com`/`sem`), `bookedVia` (`client`/`admin`), `paymentMethod`, `recur`/`recurGroup` |
 | `busy_slots` | horários ocupados, **sem dados pessoais** | id = `barberId_data_hora`. É isto que os clientes leem para ver a disponibilidade |
@@ -69,6 +69,7 @@ Os clientes só leem os seus próprios `clients/bookings/waitlist/notifications`
 - **Agenda admin:** só deixa recuar até ontem. Clicar num dia passado com marcação abre a forma de pagamento (MBWay/Revolut). É possível marcar falta (`faltou`).
 - **Registo de clientes:** fica `pendente` até aprovação. `approveClient` envia o email de ativação.
 - **Cliente criado no admin** ("+ Novo Cliente"): `window._fbCreateClientAccount` cria o login numa app Firebase temporária (para não mexer na sessão do admin) e grava o perfil já `ativo` com `createdByAdmin: true`. Se as regras recusarem a gravação pelo admin (`permission-denied`), cria o perfil como o próprio cliente (`status: 'pendente'`, como `_fbRegister`) e ativa-o pela sessão do admin (como `approveClient`). Se o email já tiver um login sem perfil (nem em `clients` nem em `admins`) e a password coincidir, reaproveita-o. Se a gravação falhar, o login acabado de criar é apagado. Ao editar, o email fica bloqueado porque é o login; só `nome`, `apelido` e `tel` são gravados.
+- **Atividade do cliente** (coluna "Atividade" e filtro na lista de Clientes, `clientActivity`): 🟢 Ativo = marcação nos últimos 3 meses ou futura; 🟡 Pouco ativo = última há mais de 3 meses; 🔴 Sem marcações = registado há mais de 1 mês e nunca marcou; 🆕 Novo = registado há menos de 1 mês sem marcações. Canceladas não contam; as do admin contam quando têm `clientId`. Não mostra valores.
 - **Permissões:** um `manager` só vê os separadores incluídos em `permissions` (`applyAdminPermissions`). Um `superadmin` vê tudo.
 
 ## Preferências do Orlando
