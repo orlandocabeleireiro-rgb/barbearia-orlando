@@ -19,9 +19,27 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
     --black: #0D0D0D; --dark: #1A1A1A; --card: #222222; --border: #333333;
-    --gold: #C9A84C; --gold-light: #E8C96A; --cream: #F2EFE9;
+    --gold: #C9A84C; --gold-light: #E8C96A; --gold-rgb: 201,168,76; --cream: #F2EFE9;
     --muted: #888888; --danger: #E05C5C; --success: #4CAF50;
   }
+  /* ── Temas das festividades (escolhidos no admin, Visão Geral) ── */
+  :root[data-theme="natal"]     { --gold:#E25555; --gold-light:#F08080; --gold-rgb:226,85,85; }
+  :root[data-theme="anonovo"]   { --gold:#D8DCE6; --gold-light:#F2F4F8; --gold-rgb:216,220,230; }
+  :root[data-theme="carnaval"]  { --gold:#B57BFF; --gold-light:#CFA6FF; --gold-rgb:181,123,255; }
+  :root[data-theme="diadopai"]  { --gold:#5B9BE6; --gold-light:#8DBBF0; --gold-rgb:91,155,230; }
+  :root[data-theme="pascoa"]    { --gold:#F4A6C0; --gold-light:#F8C6D6; --gold-rgb:244,166,192; }
+  :root[data-theme="saojoao"]   { --gold:#6CCB5F; --gold-light:#98DC8E; --gold-rgb:108,203,95; }
+  :root[data-theme="halloween"] { --gold:#FF8C1A; --gold-light:#FFAD5C; --gold-rgb:255,140,26; }
+  .theme-deco { font-size:1.4rem; line-height:1; }
+  .theme-deco:empty { display:none; }
+  #theme-fx { position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:900; }
+  #theme-fx span { position:absolute; top:-40px; opacity:.6; animation:themeFall linear infinite; will-change:transform; }
+  #theme-fx .fx-confetti { width:7px; height:11px; border-radius:2px; }
+  @keyframes themeFall {
+    0%   { transform:translate3d(0,0,0) rotate(0deg); }
+    100% { transform:translate3d(var(--drift,20px),110vh,0) rotate(var(--spin,180deg)); }
+  }
+  @media (prefers-reduced-motion: reduce) { #theme-fx { display:none; } }
   body { background: var(--black); color: var(--cream); font-family: 'Inter', sans-serif; min-height: 100vh; }
 
   /* ── NOTIFICATIONS ── */
@@ -40,12 +58,12 @@
   .notif-item { display:flex; gap:12px; padding:14px 18px; border-bottom:1px solid #1e1e1e; transition:background .2s; cursor:default; }
   .notif-item:last-child { border-bottom:none; }
   .notif-item:hover { background:rgba(255,255,255,.03); }
-  .notif-item.unread { background:rgba(201,168,76,.05); }
+  .notif-item.unread { background:rgba(var(--gold-rgb),.05); }
   .notif-icon { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
   .notif-icon.registo { background:rgba(100,149,237,.15); }
   .notif-icon.marcacao { background:rgba(76,175,80,.15); }
   .notif-icon.cancelada { background:rgba(224,92,92,.15); }
-  .notif-icon.aprovado { background:rgba(201,168,76,.15); }
+  .notif-icon.aprovado { background:rgba(var(--gold-rgb),.15); }
   .notif-body { flex:1; min-width:0; }
   .notif-title { font-size:13px; font-weight:600; margin-bottom:3px; }
   .notif-desc { font-size:12px; color:var(--muted); line-height:1.4; }
@@ -81,7 +99,7 @@
   .eye-btn svg { width: 18px; height: 18px; }
 
   /* ── WAITLIST ── */
-  .waitlist-banner { background: rgba(201,168,76,.08); border: 1px solid rgba(201,168,76,.25); border-radius: 12px; padding: 20px 24px; margin-top: 24px; text-align: center; display: none; }
+  .waitlist-banner { background: rgba(var(--gold-rgb),.08); border: 1px solid rgba(var(--gold-rgb),.25); border-radius: 12px; padding: 20px 24px; margin-top: 24px; text-align: center; display: none; }
   .waitlist-banner.show { display: block; }
   .waitlist-banner h3 { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; letter-spacing: 2px; color: var(--gold); margin-bottom: 8px; }
   .waitlist-banner p { font-size: 13px; color: var(--muted); margin-bottom: 16px; line-height: 1.6; }
@@ -158,10 +176,10 @@
   .agenda-cell.closed-slot:hover { filter:brightness(1.15); }
   .agenda-cell.closed-slot .closed-tag { font-size:10px; color:#d99; line-height:1.3; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; }
   .agenda-cell.out-of-hours { background:#141414; cursor:default; }
-  .agenda-cell.extra-hour-slot { background:rgba(201,168,76,.06); }
-  .agenda-cell.extra-hour-slot:hover { background:rgba(201,168,76,.14); }
+  .agenda-cell.extra-hour-slot { background:rgba(var(--gold-rgb),.06); }
+  .agenda-cell.extra-hour-slot:hover { background:rgba(var(--gold-rgb),.14); }
   .agenda-free.extra-free { color:var(--gold); opacity:.85; }
-  .agenda-booking { position:relative; background:rgba(201,168,76,.18); border-left:3px solid var(--gold); border-radius:4px; padding:5px 8px 16px; font-size:11px; line-height:1.4; margin-bottom:3px; }
+  .agenda-booking { position:relative; background:rgba(var(--gold-rgb),.18); border-left:3px solid var(--gold); border-radius:4px; padding:5px 8px 16px; font-size:11px; line-height:1.4; margin-bottom:3px; }
   .agenda-booking.pref-com { background:rgba(224,92,92,.18); border-left-color:var(--danger); }
   .agenda-booking.pref-sem { background:rgba(74,144,226,.18); border-left-color:#4A90E2; }
   .agenda-cell.booking-continuation { cursor:default; }
@@ -186,7 +204,7 @@
   .agenda-booking.no-show::after  { transform:translateY(-50%) rotate(-8deg); }
   .agenda-booking .ab-noshow-tag { clear:both; font-size:9px; font-weight:700; color:var(--danger); letter-spacing:.5px; margin-top:2px; }
   .agenda-free { color:#3a3a3a; font-size:10px; letter-spacing:.5px; text-align:center; padding-top:6px; }
-  .agenda-wl { background:rgba(201,168,76,.08); border-left:3px solid rgba(201,168,76,.4); border-radius:4px; padding:4px 7px; font-size:10px; color:var(--muted); margin-bottom:3px; font-style:italic; }
+  .agenda-wl { background:rgba(var(--gold-rgb),.08); border-left:3px solid rgba(var(--gold-rgb),.4); border-radius:4px; padding:4px 7px; font-size:10px; color:var(--muted); margin-bottom:3px; font-style:italic; }
   .agenda-legend { display:flex; gap:16px; margin-top:16px; font-size:11px; color:var(--muted); flex-wrap:wrap; }
   .legend-item { display:flex; align-items:center; gap:6px; }
   .legend-dot { width:12px; height:12px; border-radius:3px; flex-shrink:0; }
@@ -234,7 +252,7 @@
   .aalert.err { background: rgba(224,92,92,.15); border: 1px solid rgba(224,92,92,.4); color: #ff8a8a; }
   .aalert.ok  { background: rgba(76,175,80,.15);  border: 1px solid rgba(76,175,80,.4);  color: #81c784; }
   .aalert.show { display: block; }
-  .adm-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(201,168,76,.12); border: 1px solid rgba(201,168,76,.3); border-radius: 6px; padding: 4px 10px; font-size: 11px; color: var(--gold); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px; }
+  .adm-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(var(--gold-rgb),.12); border: 1px solid rgba(var(--gold-rgb),.3); border-radius: 6px; padding: 4px 10px; font-size: 11px; color: var(--gold); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px; }
 
   /* ADMIN */
   .admin-screen { display: none; max-width: 1040px; margin: 0 auto; padding: 36px 24px 80px; }
@@ -252,7 +270,7 @@
   .stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 28px; }
   .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
   .stat-card-link { cursor:pointer; transition:all .2s; }
-  .stat-card-link:hover { border-color:var(--gold); background:rgba(201,168,76,.06); transform:translateY(-2px); }
+  .stat-card-link:hover { border-color:var(--gold); background:rgba(var(--gold-rgb),.06); transform:translateY(-2px); }
   .stat-lbl { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
   .stat-val { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; color: var(--gold); }
   .stat-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
@@ -269,17 +287,17 @@
   tr:hover td { background: rgba(255,255,255,.02); }
   .empty-row td { text-align: center; color: var(--muted); padding: 40px; }
   .chip { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-  .chip-gold  { background: rgba(201,168,76,.15); color: var(--gold); border: 1px solid rgba(201,168,76,.3); }
+  .chip-gold  { background: rgba(var(--gold-rgb),.15); color: var(--gold); border: 1px solid rgba(var(--gold-rgb),.3); }
   .chip-green { background: rgba(76,175,80,.15);  color: #81c784; border: 1px solid rgba(76,175,80,.3); }
   .chip-blue  { background: rgba(100,149,237,.15);color: #90caf9; border: 1px solid rgba(100,149,237,.3); }
   .client-name-link { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; color: var(--cream); }
   .client-name-link:hover { color: var(--gold); }
   .ov-booking-row { cursor: pointer; }
-  .ov-booking-row:hover td { background: rgba(201,168,76,.08); }
+  .ov-booking-row:hover td { background: rgba(var(--gold-rgb),.08); }
   .chip-red   { background: rgba(224,92,92,.15);  color: #ff8a8a; border: 1px solid rgba(224,92,92,.3); }
   .btn-sm { padding: 5px 12px; border-radius: 6px; font-size: 11px; letter-spacing: .8px; text-transform: uppercase; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; transition: all .2s; border: 1px solid; }
-  .btn-edit { background: rgba(201,168,76,.1); color: var(--gold); border-color: rgba(201,168,76,.3); }
-  .btn-edit:hover { background: rgba(201,168,76,.25); }
+  .btn-edit { background: rgba(var(--gold-rgb),.1); color: var(--gold); border-color: rgba(var(--gold-rgb),.3); }
+  .btn-edit:hover { background: rgba(var(--gold-rgb),.25); }
   .btn-del  { background: rgba(224,92,92,.1); color: #ff8a8a; border-color: rgba(224,92,92,.3); }
   .btn-del:hover { background: rgba(224,92,92,.25); }
   .btn-add  { background: var(--gold); color: var(--black); border-color: var(--gold); font-size: 12px; padding: 7px 16px; }
@@ -360,10 +378,10 @@
   .pref-pill.active[data-pref="sem"] { border-color:#4A90E2; background:rgba(74,144,226,.15); color:#4A90E2; }
   .mode-pill { flex:1; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px 14px; cursor:pointer; transition:all .2s; text-align:center; font-size:13px; font-weight:600; color:var(--muted); }
   .mode-pill:hover { border-color:#555; }
-  .mode-pill.active { border-color:var(--gold); background:rgba(201,168,76,.15); color:var(--gold); }
+  .mode-pill.active { border-color:var(--gold); background:rgba(var(--gold-rgb),.15); color:var(--gold); }
   .timefirst-day-result { padding:12px 16px; background:var(--card); border:1px solid var(--border); border-radius:8px; margin-bottom:8px; cursor:pointer; font-size:13px; transition:all .15s; }
   .timefirst-day-result:hover { border-color:var(--gold); }
-  .timefirst-day-result.selected { border-color:var(--gold); background:rgba(201,168,76,.12); color:var(--gold); font-weight:600; }
+  .timefirst-day-result.selected { border-color:var(--gold); background:rgba(var(--gold-rgb),.12); color:var(--gold); font-weight:600; }
   .cal-wrap { background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:28px; }
   .cal-hdr { display:flex;align-items:center;justify-content:space-between;margin-bottom:20px; }
   .cal-month { font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:2px; }
@@ -388,7 +406,7 @@
   .time-slot.selected { background:var(--gold);border-color:var(--gold);color:var(--black);font-weight:600; }
   .time-slot.busy { opacity:.28;cursor:not-allowed;pointer-events:none;text-decoration:line-through; }
   .wd-pill { display:flex;align-items:center;gap:5px;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer;user-select:none; }
-  .wd-pill.active { background:rgba(201,168,76,.15);border-color:var(--gold);color:var(--gold); }
+  .wd-pill.active { background:rgba(var(--gold-rgb),.15);border-color:var(--gold);color:var(--gold); }
   .time-slot.closed-slot-client { opacity:.55;cursor:not-allowed;pointer-events:none;background:repeating-linear-gradient(45deg,rgba(224,92,92,.16),rgba(224,92,92,.16) 4px,rgba(224,92,92,.05) 4px,rgba(224,92,92,.05) 8px);border-color:rgba(224,92,92,.35);color:#c07070;text-decoration:line-through; }
   .time-slot.closed-slot-client .time-slot-reason { text-decoration:none;font-size:8.5px;font-weight:400;line-height:1.2;margin-top:3px;color:#c07070;opacity:.9; }
   .b-actions { display:flex;gap:10px;justify-content:flex-end; }
@@ -408,7 +426,7 @@
   .confirm-detail .row .k { color:var(--muted);width:78px;flex-shrink:0; }
 
   /* GDPR / consent */
-  .gdpr-box { background: rgba(201,168,76,.07); border: 1px solid rgba(201,168,76,.25); border-radius: 10px; padding: 16px; margin-bottom: 16px; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
+  .gdpr-box { background: rgba(var(--gold-rgb),.07); border: 1px solid rgba(var(--gold-rgb),.25); border-radius: 10px; padding: 16px; margin-bottom: 16px; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
   .gdpr-box a { color: var(--gold); cursor: pointer; text-decoration: underline; }
   .gdpr-modal-bg { position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:flex-start;justify-content:center;z-index:2000;padding:30px 16px;overflow-y:auto; }
   .gdpr-modal-bg.open { display:flex; }
@@ -608,7 +626,8 @@
 
     onSnapshot(doc(db,'settings','app'), snap => {
       const data = snap.exists() ? snap.data() : {};
-      DB.settings = { bookingsPaused: !!data.bookingsPaused, pauseMessage: data.pauseMessage || '' };
+      DB.settings = { bookingsPaused: !!data.bookingsPaused, pauseMessage: data.pauseMessage || '', theme: data.theme || '' };
+      if (typeof applyTheme==='function') applyTheme(DB.settings.theme);
       if (window.currentUser?.isAdmin) { if (typeof syncPauseUI==='function') syncPauseUI(); }
       else if (typeof applyBookingPauseUI==='function') applyBookingPauseUI();
     }, err => console.warn('Settings listener error:', err.code));
@@ -1025,6 +1044,7 @@
   <div class="logo-img-wrap">
     <img src="logo.jpg" alt="Barbearia Orlando" style="height:58px;width:58px;object-fit:contain;border-radius:50%;">
     <span class="logo">BARBEARIA <span>ORLANDO</span></span>
+    <span class="theme-deco" id="theme-deco"></span>
   </div>
   <div class="header-right">
     <div class="badge" id="hdr-badge">Agendamento Online</div>
@@ -1176,6 +1196,20 @@
 
     <div class="asec" style="margin-bottom:20px;border:1px solid var(--border)">
       <div class="asec-hdr">
+        <span class="asec-title">🎨 Tema da Aplicação</span>
+        <span id="theme-status-chip" class="chip chip-gold">Sem tema</span>
+      </div>
+      <div style="padding:0 20px 20px">
+        <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:14px">
+          Muda as cores, o enfeite no topo e o efeito a cair, para todos os clientes e para o painel. Fica ativo até escolheres outro ou "Sem tema".
+        </div>
+        <select id="theme-select" style="width:100%;margin-bottom:14px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--cream);padding:11px 14px;font-size:14px;font-family:'Inter',sans-serif"></select>
+        <button class="btn-sm btn-add" onclick="saveTheme()">Guardar</button>
+      </div>
+    </div>
+
+    <div class="asec" style="margin-bottom:20px;border:1px solid var(--border)">
+      <div class="asec-hdr">
         <span class="asec-title">🔄 Sincronizar Disponibilidade</span>
       </div>
       <div style="padding:0 20px 20px">
@@ -1307,7 +1341,7 @@
         <span class="asec-title">🔒 Horários Fechados</span>
         <button class="btn-sm btn-add" onclick="openModal('closure-add')">+ Fechar Horário</button>
       </div>
-      <div style="margin:0 20px 16px;padding:14px;background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.2);border-radius:8px;font-size:12px;color:var(--muted);line-height:1.6">
+      <div style="margin:0 20px 16px;padding:14px;background:rgba(var(--gold-rgb),.07);border:1px solid rgba(var(--gold-rgb),.2);border-radius:8px;font-size:12px;color:var(--muted);line-height:1.6">
         ℹ️ Use isto para bloquear períodos em que não está disponível — desde uma única célula de 30 minutos até ao ano inteiro. Os horários fechados ficam automaticamente indisponíveis para marcações de clientes e aparecem marcados na agenda.
       </div>
       <div class="twrap"><table>
@@ -1324,7 +1358,7 @@
         <span class="asec-title">⏰ Horários Extra</span>
         <button class="btn-sm btn-add" onclick="openModal('extra-add')">+ Horário Extra</button>
       </div>
-      <div style="margin:0 20px 16px;padding:14px;background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.2);border-radius:8px;font-size:12px;color:var(--muted);line-height:1.6">
+      <div style="margin:0 20px 16px;padding:14px;background:rgba(var(--gold-rgb),.07);border:1px solid rgba(var(--gold-rgb),.2);border-radius:8px;font-size:12px;color:var(--muted);line-height:1.6">
         ℹ️ Use isto quando trabalhar fora do horário habitual (ex: mais cedo, mais tarde, ou num dia normalmente fechado) num dia específico. As novas horas aparecem na agenda e ficam disponíveis para criar marcações nesse dia.
       </div>
       <div class="twrap"><table>
@@ -1356,7 +1390,7 @@
         <thead><tr><th>Utilizador</th><th>Nome</th><th>Nível</th><th>Acesso</th><th>Criado em</th><th>Ações</th></tr></thead>
         <tbody id="tbl-admins"></tbody>
       </table></div>
-      <div style="margin:16px 20px;padding:14px;background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.2);border-radius:8px;font-size:12px;color:var(--muted)">
+      <div style="margin:16px 20px;padding:14px;background:rgba(var(--gold-rgb),.07);border:1px solid rgba(var(--gold-rgb),.2);border-radius:8px;font-size:12px;color:var(--muted)">
         ℹ️ O administrador principal <strong style="color:var(--gold)">admin</strong> está sempre activo e não pode ser removido.
       </div>
     </div>
@@ -1377,8 +1411,8 @@
     </div>
     <div id="agenda-grid"></div>
     <div class="agenda-legend">
-      <div class="legend-item"><div class="legend-dot" style="background:rgba(201,168,76,.5)"></div>Marcação confirmada</div>
-      <div class="legend-item"><div class="legend-dot" style="background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.3)"></div>Lista de espera</div>
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(var(--gold-rgb),.5)"></div>Marcação confirmada</div>
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(var(--gold-rgb),.08);border:1px solid rgba(var(--gold-rgb),.3)"></div>Lista de espera</div>
       <div class="legend-item"><div class="legend-dot" style="background:#191919"></div>Hora passada</div>
       <div class="legend-item"><div class="legend-dot" style="background:repeating-linear-gradient(45deg,#241414,#241414 3px,#1a1010 3px,#1a1010 6px)"></div>Horário fechado</div>
       <div class="legend-item"><div class="legend-dot" style="background:rgba(224,92,92,.5);position:relative"></div>❌ Cliente faltou</div>
@@ -1399,7 +1433,7 @@
 
   <!-- Booking flow view -->
   <div class="client-view active" id="cview-booking">
-  <div id="booking-pause-banner" style="display:none;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.3);border-radius:12px;padding:26px 22px;text-align:center;margin-bottom:20px">
+  <div id="booking-pause-banner" style="display:none;background:rgba(var(--gold-rgb),.08);border:1px solid rgba(var(--gold-rgb),.3);border-radius:12px;padding:26px 22px;text-align:center;margin-bottom:20px">
     <div style="font-size:1.4rem;margin-bottom:10px">🚧</div>
     <div style="font-weight:600;color:var(--gold);margin-bottom:6px">Marcações temporariamente pausadas</div>
     <div id="booking-pause-msg" style="font-size:13px;color:var(--muted);line-height:1.6;max-width:420px;margin:0 auto"></div>
@@ -1584,7 +1618,7 @@
         <option value="cancelada">Cancelada</option>
       </select>
     </div>
-    <div class="mf" style="background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);border-radius:8px;padding:14px;margin-top:4px">
+    <div class="mf" style="background:rgba(var(--gold-rgb),.08);border:1px solid rgba(var(--gold-rgb),.2);border-radius:8px;padding:14px;margin-top:4px">
       <label style="color:var(--gold);margin-bottom:10px;display:block">🔁 Recorrência</label>
       <select id="mb-recur" onchange="toggleRecurEnd(this.value)" style="margin-bottom:10px">
         <option value="none">Sem recorrência</option>
@@ -1943,7 +1977,7 @@ const DB = {
   closures:  [],
   extraHours: [],
   busySlots: [],
-  settings:  { bookingsPaused: false, pauseMessage: '' }
+  settings:  { bookingsPaused: false, pauseMessage: '', theme: '' }
 };
 
 const HOMER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="56" height="56">
@@ -3202,6 +3236,7 @@ function syncPauseUI() {
   const msg    = document.getElementById('pause-message');
   const chip   = document.getElementById('pause-status-chip');
   if (!toggle) return; // admin screen not rendered yet
+  syncThemeUI();
   toggle.checked = !!DB.settings.bookingsPaused;
   msg.value = DB.settings.pauseMessage || '';
   togglePauseUI(toggle.checked);
@@ -3217,11 +3252,91 @@ function togglePauseUI(checked) {
 async function saveBookingPause() {
   const bookingsPaused = document.getElementById('pause-toggle').checked;
   const pauseMessage   = document.getElementById('pause-message').value.trim();
-  DB.settings = { bookingsPaused, pauseMessage };
+  DB.settings = { ...DB.settings, bookingsPaused, pauseMessage };
   try {
     await fsSet('settings', 'app', DB.settings);
   } catch(e) { console.warn('Erro ao guardar pausa de marcações:', e); }
   syncPauseUI();
+}
+
+// ── Temas das festividades ──
+// The colours live in CSS (:root[data-theme=...]); this sets the header
+// decoration and the light falling effect. The chosen theme is kept in
+// settings/app (shared by everyone) and cached on the device so it shows
+// straight away on the next visit, before Firestore answers.
+const THEMES = {
+  natal:     { label:'🎄 Natal',     deco:'🎄', fx:['❄','❅','❆'], color:'#FFFFFF' },
+  anonovo:   { label:'🥂 Ano Novo',  deco:'🥂', fx:'confetti', colors:['#E8C96A','#D8DCE6','#FFFFFF'] },
+  carnaval:  { label:'🎭 Carnaval',  deco:'🎭', fx:'confetti', colors:['#B57BFF','#FF6FAE','#4FC3F7','#FFD54F','#6CCB5F'] },
+  diadopai:  { label:'👨 Dia do Pai', deco:'👨', fx:['🥸'] },
+  pascoa:    { label:'🐣 Páscoa',    deco:'🐣', fx:['🌸','🥚'] },
+  saojoao:   { label:'🔨 São João',  deco:'🔨', fx:['🌿','🎈'] },
+  halloween: { label:'🎃 Halloween', deco:'🎃', fx:['🦇','🍂'] }
+};
+
+function applyTheme(key) {
+  const t = THEMES[key] ? key : '';
+  try { localStorage.setItem('bo_theme', t); } catch(e) {}
+  if (document.documentElement.dataset.theme === t && (t || !document.getElementById('theme-fx'))) return;
+  if (t) document.documentElement.dataset.theme = t;
+  else delete document.documentElement.dataset.theme;
+  const deco = document.getElementById('theme-deco');
+  if (deco) deco.textContent = t ? THEMES[t].deco : '';
+  renderThemeEffect(t);
+}
+
+function renderThemeEffect(key) {
+  document.getElementById('theme-fx')?.remove();
+  const t = THEMES[key];
+  if (!t) return;
+  const fx = document.createElement('div');
+  fx.id = 'theme-fx';
+  fx.setAttribute('aria-hidden', 'true');
+  const count = window.innerWidth < 600 ? 10 : 16;
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement('span');
+    if (t.fx === 'confetti') {
+      el.className = 'fx-confetti';
+      el.style.background = t.colors[i % t.colors.length];
+    } else {
+      el.textContent = t.fx[i % t.fx.length];
+      el.style.fontSize = (12 + Math.random() * 10) + 'px';
+      if (t.color) el.style.color = t.color;
+    }
+    el.style.left = (Math.random() * 100) + '%';
+    el.style.animationDuration = (9 + Math.random() * 8) + 's';
+    el.style.animationDelay = (-Math.random() * 15) + 's';
+    el.style.setProperty('--drift', (Math.random() * 80 - 40) + 'px');
+    el.style.setProperty('--spin', (Math.random() * 360 - 180) + 'deg');
+    fx.appendChild(el);
+  }
+  document.body.appendChild(fx);
+}
+
+function syncThemeUI() {
+  const sel  = document.getElementById('theme-select');
+  const chip = document.getElementById('theme-status-chip');
+  if (!sel) return;
+  if (!sel.options.length) {
+    sel.innerHTML = '<option value="">Sem tema</option>' +
+      Object.entries(THEMES).map(([k, t]) => `<option value="${k}">${t.label}</option>`).join('');
+  }
+  const cur = THEMES[DB.settings.theme] ? DB.settings.theme : '';
+  sel.value = cur;
+  if (chip) chip.textContent = cur ? THEMES[cur].label : 'Sem tema';
+}
+
+// Show the last theme straight away, before Firestore (or the Firebase SDK) loads
+try { applyTheme(localStorage.getItem('bo_theme') || ''); } catch(e) {}
+
+async function saveTheme() {
+  const theme = document.getElementById('theme-select').value;
+  DB.settings = { ...DB.settings, theme };
+  applyTheme(theme);
+  try {
+    await fsSet('settings', 'app', DB.settings);
+  } catch(e) { console.warn('Erro ao guardar tema:', e); }
+  syncThemeUI();
 }
 
 // Shown to clients when bookings are paused — hides the booking flow, keeps
@@ -5526,9 +5641,9 @@ async function renderMyBookings() {
       ? w.preferredTimes.join(' · ')
       : (w.time || '—');
     return `
-      <div class="my-booking-card" style="border-color:rgba(201,168,76,.3);background:rgba(201,168,76,.04)">
+      <div class="my-booking-card" style="border-color:rgba(var(--gold-rgb),.3);background:rgba(var(--gold-rgb),.04)">
         <div class="mb-left">
-          <div class="mb-date-box" style="background:rgba(201,168,76,.1);border-color:rgba(201,168,76,.3)">
+          <div class="mb-date-box" style="background:rgba(var(--gold-rgb),.1);border-color:rgba(var(--gold-rgb),.3)">
             <div style="font-size:1.4rem;line-height:1;color:var(--gold)">⏳</div>
             <div class="mb-date-mon" style="color:var(--gold)">ESPERA</div>
           </div>
