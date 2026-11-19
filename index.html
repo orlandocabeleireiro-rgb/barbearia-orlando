@@ -980,6 +980,12 @@
       const status = data.status || 'pendente';
 
       if (status === 'ativo') {
+        // Remember when this client last opened the app (shown as "Última entrada"
+        // in the admin's client list). At most one write every 6 hours.
+        if (!data.lastSeenAt || Date.now() - data.lastSeenAt > 6*60*60*1000) {
+          updateDoc(doc(db,'clients', firebaseUser.uid), { lastSeenAt: Date.now() })
+            .catch(e => console.warn('lastSeenAt não gravado:', e.code));
+        }
         window.currentUser = {
           id:   snap.id,
           nome: data.nome || data.email || 'Cliente',
@@ -1284,9 +1290,16 @@
       </div>
       <div style="padding:0 20px 16px">
         <input type="text" id="client-search-input" placeholder="🔍 Pesquisar por nome, email ou nº de telemóvel..." oninput="renderClientsTable()" style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--cream);font-family:'Inter',sans-serif;font-size:13px">
+        <select id="client-activity-filter" onchange="renderClientsTable()" style="width:100%;margin-top:10px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--cream);font-family:'Inter',sans-serif;font-size:13px">
+          <option value="">Atividade: todos os clientes</option>
+          <option value="ativo">🟢 Ativos</option>
+          <option value="pouco">🟡 Pouco ativos (última marcação há mais de 3 meses)</option>
+          <option value="sem">🔴 Sem marcações (registados há mais de 1 mês)</option>
+          <option value="novo">🆕 Novos (registados há menos de 1 mês)</option>
+        </select>
       </div>
       <div class="twrap"><table>
-        <thead><tr><th>Nome</th><th>Email</th><th>Telemóvel</th><th>Registado em</th><th>RGPD</th><th>Estado</th><th>Ações</th></tr></thead>
+        <thead><tr><th>Nome</th><th>Atividade</th><th>Email</th><th>Telemóvel</th><th>Registado em</th><th>RGPD</th><th>Estado</th><th>Ações</th></tr></thead>
         <tbody id="tbl-clients"></tbody>
       </table></div>
     </div>
@@ -3621,10 +3634,63 @@ function removeNotifsForClient(clientId, type) {
   updateNotifBadge();
 }
 
+// ── Atividade do cliente ──
+// Ativo: marcação nos últimos 3 meses ou já marcada para o futuro.
+// Pouco ativo: última marcação há mais de 3 meses.
+// Sem marcações: registado há mais de 1 mês e nunca marcou.
+// Novo: registado há menos de 1 mês e ainda não marcou.
+// Canceladas não contam. Marcações feitas no admin contam quando estão
+// ligadas à ficha (clientId).
+const ACTIVITY = {
+  ativo: { label:'🟢 Ativo',          style:'background:rgba(76,175,80,.15);color:#81c784' },
+  pouco: { label:'🟡 Pouco ativo',    style:'background:rgba(255,193,7,.15);color:#ffd54f' },
+  sem:   { label:'🔴 Sem marcações',  style:'background:rgba(224,92,92,.15);color:#e57373' },
+  novo:  { label:'🆕 Novo',           style:'background:rgba(74,144,226,.15);color:#90caf9' }
+};
+
+function isoDaysAgo(days) {
+  const d = new Date(); d.setDate(d.getDate() - days);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// registedAt is stored as "dd/mm/aaaa" (pt-PT) — returns "aaaa-mm-dd" or ''
+function ptDateToIso(str) {
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(str||'').trim());
+  return m ? `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}` : '';
+}
+
+function isoToPt(iso) {
+  const [y, m, d] = String(iso||'').split('-');
+  return d ? `${d}/${m}/${y}` : '—';
+}
+
+function clientActivity(c) {
+  const bks = DB.bookings.filter(b => b.clientId === c.id && b.status !== 'cancelada' && b.rawDate);
+  const lastDate = bks.reduce((max, b) => b.rawDate > max ? b.rawDate : max, '');
+  let level;
+  if (!bks.length) {
+    const reg = ptDateToIso(c.registedAt);
+    level = (reg && reg >= isoDaysAgo(30)) ? 'novo' : 'sem';
+  } else {
+    level = lastDate >= isoDaysAgo(90) ? 'ativo' : 'pouco';
+  }
+  return { level, count: bks.length, lastDate };
+}
+
+function activityCell(c) {
+  const a = clientActivity(c);
+  const seen = c.lastSeenAt ? new Date(c.lastSeenAt).toLocaleDateString('pt-PT') : '—';
+  return `<span class="chip" style="font-size:10px;white-space:nowrap;${ACTIVITY[a.level].style}">${ACTIVITY[a.level].label}</span>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5;white-space:nowrap">
+      ${a.count} marcaç${a.count===1?'ão':'ões'}${a.lastDate ? ' · última ' + isoToPt(a.lastDate) : ''}<br>
+      Última entrada: ${seen}
+    </div>`;
+}
+
 function renderClientsTable() {
   const tb=document.getElementById('tbl-clients');
   if (!tb) return;
-  if (!DB.clients.length) { tb.innerHTML='<tr class="empty-row"><td colspan="7">Nenhum cliente registado.</td></tr>'; return; }
+  if (!DB.clients.length) { tb.innerHTML='<tr class="empty-row"><td colspan="8">Nenhum cliente registado.</td></tr>'; return; }
 
   const input = document.getElementById('client-search-input');
   const q = (input?.value || '').trim().toLowerCase();
@@ -3640,6 +3706,9 @@ function renderClientsTable() {
     });
   }
 
+  const activityFilter = document.getElementById('client-activity-filter')?.value || '';
+  if (activityFilter) filtered = filtered.filter(c => clientActivity(c).level === activityFilter);
+
   // Clients awaiting approval always come first (so they don't get buried
   // alphabetically among everyone else), then alphabetical order by first
   // name, then apelido, within each group.
@@ -3650,13 +3719,14 @@ function renderClientsTable() {
     return (a.nome+' '+a.apelido).localeCompare(b.nome+' '+b.apelido, 'pt', {sensitivity:'base'});
   });
 
-  if (!sorted.length) { tb.innerHTML='<tr class="empty-row"><td colspan="7">Nenhum cliente encontrado para essa pesquisa.</td></tr>'; return; }
+  if (!sorted.length) { tb.innerHTML='<tr class="empty-row"><td colspan="8">Nenhum cliente encontrado para essa pesquisa.</td></tr>'; return; }
 
   tb.innerHTML=sorted.map(c=>{
     const isPending = c.status==='pendente';
     const gdprInfo = c.gdpr ? `✓ RGPD ${c.gdpr.date}` : '—';
     return `<tr ${isPending?'style="background:rgba(255,152,0,.05)"':''}>
       <td><strong>${c.nome} ${c.apelido}</strong>${isPending?' <span style="font-size:10px;color:#ffb74d">• NOVO</span>':''}</td>
+      <td>${activityCell(c)}</td>
       <td>${c.email}</td><td>${c.tel}</td><td>${c.registedAt}</td>
       <td style="font-size:11px;color:var(--muted)">${gdprInfo}</td>
       <td>${clientStatusChip(c.status)}</td>
