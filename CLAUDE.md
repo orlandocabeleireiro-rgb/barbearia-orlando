@@ -23,7 +23,7 @@ Aplicação web de marcações online da **Barbearia Orlando** (Rua Álvaro de C
   - `template_1fk81zm`: confirmação de marcação
   - `template_fkf9m6i`: lembrete no dia anterior (enviado pela Cloud Function, não pelo site)
 - **SheetJS** (CDN) para o backup da agenda em `.xlsx`
-- **PWA**: `manifest.json`, `sw.js` (cache offline), favicons `favicon-16/32.png`, `icon-192.png`, `apple-touch-icon.png`, logótipo em `logo.png` (400×400, emblema redondo com fundo transparente)
+- **PWA**: `manifest.json`, `sw.js` (cache offline), favicons `favicon-16/32.png`, `icon-192.png`, `apple-touch-icon.png`, logótipo em `logo.png` (400×400, emblema redondo com fundo transparente). Os ícones (`favicon-16/32`, `icon-192/512`) também são o emblema com fundo transparente; `apple-touch-icon.png` e os `icon-*-maskable.png` têm os cantos pretos (#0D0D0D), porque o iPhone e o Android não aceitam transparência aí
 - Alojamento: GitHub Pages
 
 ## Estrutura do `index.html`
