@@ -21,7 +21,7 @@ Aplicação web de marcações online da **Barbearia Orlando** (Rua Álvaro de C
   - `template_v3y5vbg`: conta aprovada
   - `template_1fk81zm`: confirmação de marcação
 - **SheetJS** (CDN) para o backup da agenda em `.xlsx`
-- **PWA**: `manifest.json`, `sw.js` (cache offline), favicons `favicon-16/32.png`, `icon-192.png`, `apple-touch-icon.png`, logótipo em `logo.jpg` (400×400)
+- **PWA**: `manifest.json`, `sw.js` (cache offline), favicons `favicon-16/32.png`, `icon-192.png`, `apple-touch-icon.png`, logótipo em `logo.png` (400×400, emblema redondo com fundo transparente)
 - Alojamento: GitHub Pages
 
 ## Estrutura do `index.html`
