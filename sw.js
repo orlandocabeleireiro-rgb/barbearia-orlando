@@ -4,7 +4,7 @@
 // is handled separately by Firestore's own offline cache — this only makes
 // sure the page itself loads.
 
-const CACHE_NAME = 'barbearia-orlando-shell-v3';
+const CACHE_NAME = 'barbearia-orlando-shell-v4';
 const APP_SHELL = [
   './',
   './index.html',
