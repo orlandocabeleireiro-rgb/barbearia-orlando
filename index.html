@@ -659,6 +659,7 @@
       // single-document listener rather than a collection query.
       _clientsUnsub = onSnapshot(doc(db,'clients', uid), snap => {
         DB.clients = snap.exists() ? [{id:snap.id, ...snap.data()}] : [];
+        if (typeof maybeShowReviewPrompt === 'function') maybeShowReviewPrompt();
       }, err => console.warn('Clients listener error:', err.code));
     }
 
@@ -668,6 +669,7 @@
       else if (window.currentUser) {
         const mv = document.getElementById('cview-mybookings');
         if (mv?.classList.contains('active')) renderMyBookings();
+        if (typeof maybeShowReviewPrompt === 'function') maybeShowReviewPrompt();
       }
     }, err => console.warn('Bookings listener error:', err.code));
 
@@ -1436,6 +1438,17 @@
 
 <!-- ═══════ BOOKING SCREEN ═══════ -->
 <div class="booking-screen" id="booking-screen">
+
+  <!-- Pedido de avaliação no Google (ver maybeShowReviewPrompt) -->
+  <div id="review-prompt" style="display:none;background:rgba(var(--gold-rgb),.08);border:1px solid rgba(var(--gold-rgb),.35);border-radius:12px;padding:18px 18px 16px;margin-bottom:18px;text-align:center">
+    <div style="font-size:1.3rem;margin-bottom:6px">⭐</div>
+    <div style="font-size:14px;line-height:1.5;margin-bottom:14px">Gostou do serviço? A sua avaliação no Google ajuda-nos muito.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+      <button class="btn btn-primary" style="flex:1;min-width:120px" onclick="answerReviewPrompt('clicked')">⭐ Avaliar agora</button>
+      <button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="answerReviewPrompt('done')">✓ Já avaliei</button>
+    </div>
+    <button onclick="answerReviewPrompt('later')" style="margin-top:10px;background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">Agora não</button>
+  </div>
 
   <!-- Client navigation tabs -->
   <div class="client-nav">
@@ -3525,6 +3538,48 @@ const SOCIAL_LINKS = {
   google_review: 'https://g.page/r/CRfxKw9NQw2lEAE/review'
 };
 
+// ── Pedido de avaliação no Google ──
+// Shown inside the client's app once they have at least one past (non-
+// cancelled, non-no-show) booking. "Avaliar agora" / "Já avaliei" stop it for
+// good. "Agora não" hides it until the client has a newer past booking, and
+// after the 2nd "Agora não" it never comes back. Stored on the client's own
+// record: reviewStatus ('clicked' | 'done'), reviewPromptCount,
+// reviewSnoozedUntilBooking (rawDate of the last visit when they said no).
+function lastPastVisitDate(clientId) {
+  const today = isoDaysAgo(0);
+  return DB.bookings
+    .filter(b => b.clientId === clientId && b.rawDate && b.rawDate < today && b.status !== 'cancelada' && b.status !== 'faltou')
+    .reduce((max, b) => b.rawDate > max ? b.rawDate : max, '');
+}
+
+function maybeShowReviewPrompt() {
+  const box = document.getElementById('review-prompt');
+  if (!box || !currentUser || currentUser.isAdmin) return;
+  const c = DB.clients.find(x => x.id === currentUser.id);
+  if (!c) return;
+  const lastVisit = lastPastVisitDate(c.id);
+  const show = !c.reviewStatus
+    && (c.reviewPromptCount || 0) < 2
+    && !!lastVisit
+    && lastVisit > (c.reviewSnoozedUntilBooking || '');
+  box.style.display = show ? 'block' : 'none';
+}
+
+function answerReviewPrompt(answer) {
+  const c = DB.clients.find(x => x.id === currentUser?.id);
+  document.getElementById('review-prompt').style.display = 'none';
+  if (!c) return;
+  let data;
+  if (answer === 'clicked' || answer === 'done') {
+    data = { reviewStatus: answer, reviewAnsweredAt: Date.now() };
+    if (answer === 'clicked') window.open(SOCIAL_LINKS.google_review, '_blank', 'noopener');
+  } else {
+    data = { reviewPromptCount: (c.reviewPromptCount || 0) + 1, reviewSnoozedUntilBooking: lastPastVisitDate(c.id) };
+  }
+  Object.assign(c, data);
+  fsUpdate('clients', c.id, data).catch(e => console.warn('Resposta à avaliação não gravada:', e.code));
+}
+
 function invalidateBusy(barberId, rawDate){
   const key=`${barberId}-${rawDate}`;
   // Delete all BUSY keys for this barber+date so they're recalculated
@@ -3683,7 +3738,7 @@ function activityCell(c) {
   return `<span class="chip" style="font-size:10px;white-space:nowrap;${ACTIVITY[a.level].style}">${ACTIVITY[a.level].label}</span>
     <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5;white-space:nowrap">
       ${a.count} marcaç${a.count===1?'ão':'ões'}${a.lastDate ? ' · última ' + isoToPt(a.lastDate) : ''}<br>
-      Última entrada: ${seen}
+      Última entrada: ${seen}${c.reviewStatus ? '<br>⭐ Google: ' + (c.reviewStatus === 'done' ? 'já avaliou' : 'abriu a avaliação') : ''}
     </div>`;
 }
 
