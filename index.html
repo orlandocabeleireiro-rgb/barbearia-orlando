@@ -1053,7 +1053,7 @@
 <!-- HEADER -->
 <header>
   <div class="logo-img-wrap">
-    <img src="logo.jpg" alt="Barbearia Orlando" style="height:58px;width:58px;object-fit:contain;border-radius:50%;">
+    <img src="logo.png" alt="Barbearia Orlando" style="height:58px;width:58px;object-fit:contain;border-radius:50%;">
     <span class="logo">BARBEARIA <span>ORLANDO</span></span>
     <span class="theme-deco" id="theme-deco"></span>
   </div>
@@ -1087,7 +1087,7 @@
 <div class="auth-screen" id="auth-screen">
   <div class="auth-box">
     <div class="auth-logo">
-      <img src="logo.jpg" alt="Barbearia Orlando" style="width:160px;height:160px;object-fit:contain;border-radius:50%;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto;">
+      <img src="logo.png" alt="Barbearia Orlando" style="width:160px;height:160px;object-fit:contain;border-radius:50%;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto;">
       <h2>BARBEARIA ORLANDO</h2>
       <p>Entre ou crie a sua conta para agendar</p>
     </div>
@@ -1280,7 +1280,7 @@
         <input type="text" id="booking-search-input" placeholder="🔍 Pesquisar por nome ou nº de telemóvel do cliente..." oninput="filterAdminBookingsTable()" style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--cream);font-family:'Inter',sans-serif;font-size:13px">
       </div>
       <div class="twrap"><table>
-        <thead><tr><th>Cliente</th><th>Serviço</th><th>Barbeiro</th><th>Data</th><th>Hora</th><th>Total</th><th>Estado</th><th>Ações</th></tr></thead>
+        <thead><tr><th>Cliente</th><th>Marcado por</th><th>Serviço</th><th>Barbeiro</th><th>Data</th><th>Hora</th><th>Total</th><th>Estado</th><th>Ações</th></tr></thead>
         <tbody id="tbl-bookings"></tbody>
       </table></div>
     </div>
@@ -3495,17 +3495,28 @@ function goToAgendaForBooking(rawDate) {
   showAdminView('agenda');
 }
 
+// Who made a booking: the client in the app, an admin in the panel (by name
+// from now on; older admin bookings only know it was an admin), or the
+// waitlist filling a freed slot automatically.
+function bookedByLabel(b) {
+  if (b.bookedVia === 'client') return 'Cliente (app)';
+  if (b.fromWaitlist)           return 'Lista de espera';
+  if (b.createdBy)              return b.createdBy;
+  if (b.bookedVia === 'admin')  return 'Admin';
+  return '—';
+}
+
 function renderBookingTable(tbodyId, rows, withActions, emptyMsg) {
   const tb=document.getElementById(tbodyId);
   if (!tb) return;
-  if (!rows.length) { tb.innerHTML=`<tr class="empty-row"><td colspan="${withActions?8:6}">${emptyMsg || 'Nenhuma marcação ainda.'}</td></tr>`; return; }
+  if (!rows.length) { tb.innerHTML=`<tr class="empty-row"><td colspan="${withActions?9:7}">${emptyMsg || 'Nenhuma marcação ainda.'}</td></tr>`; return; }
   const statusChip = s => {
     if(s==='confirmada') return `<span class="chip chip-green">Confirmada</span>`;
     if(s==='pendente')   return `<span class="chip chip-gold">Pendente</span>`;
     return `<span class="chip chip-red">Cancelada</span>`;
   };
   tb.innerHTML = rows.map(b=>`<tr>
-    <td><span class="client-name-link" onclick="showClientContactPopup('${b.clientId||''}')">${displayClientName(b)}</span></td><td>${b.service||'—'}</td><td>${b.barber||'—'}</td>
+    <td><span class="client-name-link" onclick="showClientContactPopup('${b.clientId||''}')">${displayClientName(b)}</span></td><td style="font-size:12px;color:var(--muted);white-space:nowrap">${bookedByLabel(b)}</td><td>${b.service||'—'}</td><td>${b.barber||'—'}</td>
     <td>${b.date||'—'}</td><td>${b.time||'—'}</td><td>€${fmt(b.price||0)}</td>
     ${withActions?'<td>'+statusChip(b.status||'confirmada')+'</td><td><div class="btn-actions"><button class="btn-sm btn-edit" data-id="'+b.id+'" onclick="editBooking(this.dataset.id)">Editar</button><button class="btn-sm btn-del" data-id="'+b.id+'" data-name="'+(b.clientName||'')+'" onclick="confirmDeleteBooking(this.dataset.id,this.dataset.name)">Apagar</button></div></td>':''}
   </tr>`).join('');
@@ -4605,7 +4616,7 @@ async function saveBooking() {
   function makeEntry(rDate, rg) {
     const dateStr=new Date(rDate+'T12:00:00').toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
     const recurLabel = recur==='weekly'?'🔁 Semanal':recur==='monthly'?'🔁 Mensal':null;
-    return { id:uid('bk'), clientId, clientName, serviceId, service:svc.name+(recurLabel?' '+recurLabel:''), barberId, barber:barber.name, rawDate:rDate, date:dateStr, time, price:svc.price, status, recur, recurGroup:rg||null, clientPreference, bookedVia:'admin', createdAtMs: Date.now() };
+    return { id:uid('bk'), clientId, clientName, serviceId, service:svc.name+(recurLabel?' '+recurLabel:''), barberId, barber:barber.name, rawDate:rDate, date:dateStr, time, price:svc.price, status, recur, recurGroup:rg||null, clientPreference, bookedVia:'admin', createdBy: currentUser?.nome || 'Admin', createdAtMs: Date.now() };
   }
 
   if (id) {

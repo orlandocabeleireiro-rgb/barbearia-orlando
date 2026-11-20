@@ -21,7 +21,7 @@ Aplicação web de marcações online da **Barbearia Orlando** (Rua Álvaro de C
   - `template_v3y5vbg`: conta aprovada
   - `template_1fk81zm`: confirmação de marcação
 - **SheetJS** (CDN) para o backup da agenda em `.xlsx`
-- **PWA**: `manifest.json`, `sw.js` (cache offline), favicons `favicon-16/32.png`, `icon-192.png`, `apple-touch-icon.png`, logótipo em `logo.jpg` (400×400)
+- **PWA**: `manifest.json`, `sw.js` (cache offline), favicons `favicon-16/32.png`, `icon-192.png`, `apple-touch-icon.png`, logótipo em `logo.png` (400×400, emblema redondo com fundo transparente)
 - Alojamento: GitHub Pages
 
 ## Estrutura do `index.html`
@@ -71,6 +71,7 @@ Os clientes só leem os seus próprios `clients/bookings/waitlist/notifications`
 - **Cliente criado no admin** ("+ Novo Cliente"): `window._fbCreateClientAccount` cria o login numa app Firebase temporária (para não mexer na sessão do admin) e grava o perfil já `ativo` com `createdByAdmin: true`. Se as regras recusarem a gravação pelo admin (`permission-denied`), cria o perfil como o próprio cliente (`status: 'pendente'`, como `_fbRegister`) e ativa-o pela sessão do admin (como `approveClient`). Se o email já tiver um login sem perfil (nem em `clients` nem em `admins`) e a password coincidir, reaproveita-o. Se a gravação falhar, o login acabado de criar é apagado. Ao editar, o email fica bloqueado porque é o login; só `nome`, `apelido` e `tel` são gravados.
 - **Atividade do cliente** (coluna "Atividade" e filtro na lista de Clientes, `clientActivity`): 🟢 Ativo = marcação nos últimos 3 meses ou futura; 🟡 Pouco ativo = última há mais de 3 meses; 🔴 Sem marcações = registado há mais de 1 mês e nunca marcou; 🆕 Novo = registado há menos de 1 mês sem marcações. Canceladas não contam; as do admin contam quando têm `clientId`. Não mostra valores.
 - **Pedido de avaliação no Google** (`maybeShowReviewPrompt`): aviso no ecrã do cliente quando tem pelo menos 1 marcação passada (não cancelada nem falta). "Avaliar agora" (abre `SOCIAL_LINKS.google_review`) e "Já avaliei" gravam `reviewStatus` (`clicked`/`done`) e não volta. "Agora não" grava `reviewPromptCount` e `reviewSnoozedUntilBooking`; só volta depois de um corte mais recente, no máximo 2 vezes. Nada é oferecido em troca (regras do Google). O admin vê a resposta na coluna Atividade.
+- **Quem marcou** (`bookedByLabel`): coluna "Marcado por" na lista de Marcações (só aí, não na agenda). Mostra "Cliente (app)" (`bookedVia:'client'`), "Lista de espera" (`fromWaitlist`), o nome do admin (`createdBy`, gravado nas marcações do painel desde esta versão) ou "Admin" nas antigas.
 - **Permissões:** um `manager` só vê os separadores incluídos em `permissions` (`applyAdminPermissions`). Um `superadmin` vê tudo.
 
 ## Preferências do Orlando
