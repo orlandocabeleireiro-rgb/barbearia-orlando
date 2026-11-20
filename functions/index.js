@@ -42,3 +42,33 @@ exports.deleteUserAccount = onCall({ region: 'us-central1' }, async (request) =>
   }
   return { deleted: true };
 });
+
+// ── Lembrete por email no dia anterior à marcação ──
+//
+// sendBookingReminders corre todos os dias às 18:00 (hora de Lisboa). Procura
+// as marcações confirmadas de amanhã que estejam ligadas à ficha de um cliente
+// (clientId) com email, e envia a cada uma o lembrete pelo EmailJS (modelo
+// "Lembrete"). Cada marcação fica com reminderSentAt, para nunca receber dois.
+// A lógica está em reminders.js.
+//
+// A Private Key do EmailJS fica guardada como segredo no Firebase
+// (EMAILJS_PRIVATE_KEY) — nunca no código. Publicar: ver COMO_PUBLICAR.md
+
+const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { defineSecret } = require('firebase-functions/params');
+const logger = require('firebase-functions/logger');
+const { tomorrowInLisbon, sendRemindersFor } = require('./reminders');
+
+const EMAILJS_PRIVATE_KEY = defineSecret('EMAILJS_PRIVATE_KEY');
+
+exports.sendBookingReminders = onSchedule({
+  schedule: '0 18 * * *',
+  timeZone: 'Europe/Lisbon',
+  region: 'us-central1',
+  timeoutSeconds: 300,
+  secrets: [EMAILJS_PRIVATE_KEY]
+}, async () => {
+  const dateIso = tomorrowInLisbon();
+  const result = await sendRemindersFor(getFirestore(), dateIso, EMAILJS_PRIVATE_KEY.value());
+  logger.info('Lembretes de ' + dateIso, result);
+});

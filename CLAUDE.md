@@ -17,9 +17,11 @@ Aplicação web de marcações online da **Barbearia Orlando** (Rua Álvaro de C
   - Firestore, com persistência offline (`enableIndexedDbPersistence`)
   - Authentication (email/password), usado por clientes **e** administradores
   - Cloud Function `deleteUserAccount` (Callable/`onCall`, `us-central1`), que apaga contas de login e só aceita pedidos de admins (perfil em `admins`). O código está em `functions/index.js` e publica-se pelo Google Cloud Shell (ver `functions/COMO_PUBLICAR.md`). O site chama-a através de `deleteAuthAccount(uid)`.
+  - Cloud Function `sendBookingReminders` (agendada, todos os dias às 18:00 Europe/Lisbon, `us-central1`): envia pelo EmailJS (API REST, modelo `template_fkf9m6i` "Lembrete") um lembrete às marcações `confirmada` de amanhã com `clientId` e email na ficha, e grava `reminderSentAt` na marcação. A lógica está em `functions/reminders.js`; a Private Key do EmailJS é o segredo `EMAILJS_PRIVATE_KEY` no Firebase.
 - **EmailJS** (`service_bmptmfn`)
   - `template_v3y5vbg`: conta aprovada
   - `template_1fk81zm`: confirmação de marcação
+  - `template_fkf9m6i`: lembrete no dia anterior (enviado pela Cloud Function, não pelo site)
 - **SheetJS** (CDN) para o backup da agenda em `.xlsx`
 - **PWA**: `manifest.json`, `sw.js` (cache offline), favicons `favicon-16/32.png`, `icon-192.png`, `apple-touch-icon.png`, logótipo em `logo.png` (400×400, emblema redondo com fundo transparente)
 - Alojamento: GitHub Pages
