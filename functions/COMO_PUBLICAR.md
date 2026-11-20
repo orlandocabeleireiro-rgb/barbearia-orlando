@@ -48,3 +48,50 @@ Responde `y` quando perguntar se tens a certeza.
 No painel admin, cria um cliente de teste com um email teu, apaga-o, e
 volta a registar-te com o mesmo email. Se o registo funcionar, a função
 apagou a conta antiga.
+
+---
+
+# Lembretes por email (`sendBookingReminders`)
+
+Corre sozinha todos os dias às 18:00 (hora de Lisboa) e envia um lembrete
+por email a cada cliente com marcação confirmada no dia seguinte. Usa o
+modelo "Lembrete" do EmailJS (`template_fkf9m6i`).
+
+## Antes (no site do EmailJS, uma só vez)
+
+- Em **Account → Security**, ligar **"Allow EmailJS API for non-browser
+  applications"**.
+- Ter à mão a **Private Key** (Account → API Keys). Não a envies a ninguém.
+
+## 1. Abrir o Cloud Shell e descarregar o código
+
+Abre https://shell.cloud.google.com e cola:
+
+```
+rm -rf barbearia-orlando && git clone https://github.com/orlandocabeleireiro-rgb/barbearia-orlando.git && cd barbearia-orlando/functions && npm install && cd ..
+```
+
+## 2. Guardar a Private Key do EmailJS no Firebase
+
+```
+firebase functions:secrets:set EMAILJS_PRIVATE_KEY --project barbearia-orlando-c660c
+```
+
+- Se perguntar se queres ativar um serviço (Secret Manager), responde `y`.
+- Quando pedir o valor, cola a Private Key e carrega em Enter. Não aparece
+  nada no ecrã enquanto colas — é normal.
+
+## 3. Publicar a função
+
+```
+firebase deploy --only functions:sendBookingReminders --project barbearia-orlando-c660c
+```
+
+- Se perguntar se queres ativar serviços (Cloud Scheduler, etc.), responde `y`.
+- No fim deve aparecer `Deploy complete!`.
+
+## Como testar
+
+Faz uma marcação para amanhã com um cliente com o teu email (ex.: o
+Henrique). Às 18:00 deve chegar o lembrete. No EmailJS, em **Email
+History**, aparece cada envio.
