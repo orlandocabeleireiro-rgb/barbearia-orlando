@@ -2447,14 +2447,16 @@ function checkWaitlistBanner() {
   const currentMinutes = now.getHours()*60+now.getMinutes();
   const futureSlots = all.filter(slot => !(isToday && toMin(slot) <= currentMinutes));
 
+  // Closed hours (Fechados) count as "busy" for availability, but nobody will
+  // ever cancel them — so they must never be offered on the waitlist.
   let busySlots, anyAvailable;
   if (noPref) {
     const availMap = getAnyBarberAvailability(y, m-1, d, dur);
-    busySlots    = futureSlots.filter(slot => !availMap[slot]);
+    busySlots    = futureSlots.filter(slot => !availMap[slot] && DB.barbers.some(b => !isClosed(b.id, bState.date, slot)));
     anyAvailable = futureSlots.some(slot => !!availMap[slot]);
   } else {
     const busy = getBusy(bState.barber, y, m-1, d);
-    busySlots    = futureSlots.filter(slot => busy.includes(slot));
+    busySlots    = futureSlots.filter(slot => busy.includes(slot) && !isClosed(bState.barber, bState.date, slot));
     anyAvailable = futureSlots.some(slot => avail(slot, dur, busy));
   }
 
