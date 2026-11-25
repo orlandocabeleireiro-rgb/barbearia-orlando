@@ -40,12 +40,11 @@
     100% { transform:translate3d(var(--drift,20px),110vh,0) rotate(var(--spin,180deg)); }
   }
   @media (prefers-reduced-motion: reduce) { #theme-fx { display:none; } }
-  /* ── Extras do tema de Natal: coroa de azevinho e gorro no logótipo, luzinhas
+  /* ── Extras do tema de Natal: coroa de azevinho à volta do logótipo, luzinhas
      no topo e mensagem de Boas Festas. Só aparecem com data-theme="natal". ── */
   .logo-frame { position:relative; display:inline-block; flex-shrink:0; line-height:0; }
-  .logo-frame .xmas-wreath, .logo-frame .xmas-hat { display:none; position:absolute; pointer-events:none; background-repeat:no-repeat; background-size:contain; background-position:center; }
+  .logo-frame .xmas-wreath { display:none; position:absolute; pointer-events:none; background-repeat:no-repeat; background-size:contain; background-position:center; }
   :root[data-theme="natal"] .logo-frame .xmas-wreath { display:block; inset:-18%; background-image:url(natal-coroa.svg); }
-  :root[data-theme="natal"] .logo-frame .xmas-hat { display:block; width:64%; height:52%; top:-30%; right:-24%; transform:rotate(18deg); background-image:url(natal-gorro.svg); }
   :root[data-theme="natal"] .auth-logo .logo-frame { margin-top:34px !important; margin-bottom:36px !important; }
   .xmas-lights { display:none; position:absolute; left:0; right:0; top:0; height:30px; pointer-events:none; overflow:hidden; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='24'%3E%3Cpath d='M0,4 Q30,20 60,4' fill='none' stroke='%23303030' stroke-width='2'/%3E%3C/svg%3E") repeat-x; }
   :root[data-theme="natal"] .xmas-lights { display:block; }
@@ -1071,7 +1070,7 @@
 <header>
   <div class="xmas-lights" id="xmas-lights" aria-hidden="true"></div>
   <div class="logo-img-wrap">
-    <span class="logo-frame"><img src="logo.png" alt="Barbearia Orlando" style="height:58px;width:58px;object-fit:contain;border-radius:50%;"><span class="xmas-wreath"></span><span class="xmas-hat"></span></span>
+    <span class="logo-frame"><img src="logo.png" alt="Barbearia Orlando" style="height:58px;width:58px;object-fit:contain;border-radius:50%;"><span class="xmas-wreath"></span></span>
     <span class="logo">BARBEARIA <span>ORLANDO</span></span>
     <span class="theme-deco" id="theme-deco"></span>
   </div>
@@ -1105,7 +1104,7 @@
 <div class="auth-screen" id="auth-screen">
   <div class="auth-box">
     <div class="auth-logo">
-      <span class="logo-frame" style="display:block;width:160px;margin:0 auto 10px"><img src="logo.png" alt="Barbearia Orlando" style="width:160px;height:160px;object-fit:contain;border-radius:50%;display:block;"><span class="xmas-wreath"></span><span class="xmas-hat"></span></span>
+      <span class="logo-frame" style="display:block;width:160px;margin:0 auto 10px"><img src="logo.png" alt="Barbearia Orlando" style="width:160px;height:160px;object-fit:contain;border-radius:50%;display:block;"><span class="xmas-wreath"></span></span>
       <h2>BARBEARIA ORLANDO</h2>
       <p>Entre ou crie a sua conta para agendar</p>
     </div>
@@ -3324,7 +3323,7 @@ async function saveBookingPause() {
 // settings/app (shared by everyone) and cached on the device so it shows
 // straight away on the next visit, before Firestore answers.
 const THEMES = {
-  natal:     { label:'🎄 Natal',     deco:'🎄', fx:['❄','❅','❆'], color:'#FFFFFF' },
+  natal:     { label:'🎄 Natal',     deco:'', fx:['❄','❅','❆'], color:'#FFFFFF' },
   anonovo:   { label:'🥂 Ano Novo',  deco:'🥂', fx:'confetti', colors:['#E8C96A','#D8DCE6','#FFFFFF'] },
   carnaval:  { label:'🎭 Carnaval',  deco:'🎭', fx:'confetti', colors:['#B57BFF','#FF6FAE','#4FC3F7','#FFD54F','#6CCB5F'] },
   diadopai:  { label:'👨 Dia do Pai', deco:'👨', fx:['🥸'] },
