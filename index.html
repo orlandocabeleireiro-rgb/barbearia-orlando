@@ -40,6 +40,22 @@
     100% { transform:translate3d(var(--drift,20px),110vh,0) rotate(var(--spin,180deg)); }
   }
   @media (prefers-reduced-motion: reduce) { #theme-fx { display:none; } }
+  /* ── Extras do tema de Natal: coroa de azevinho e gorro no logótipo, luzinhas
+     no topo e mensagem de Boas Festas. Só aparecem com data-theme="natal". ── */
+  .logo-frame { position:relative; display:inline-block; flex-shrink:0; line-height:0; }
+  .logo-frame .xmas-wreath, .logo-frame .xmas-hat { display:none; position:absolute; pointer-events:none; background-repeat:no-repeat; background-size:contain; background-position:center; }
+  :root[data-theme="natal"] .logo-frame .xmas-wreath { display:block; inset:-18%; background-image:url(natal-coroa.svg); }
+  :root[data-theme="natal"] .logo-frame .xmas-hat { display:block; width:64%; height:52%; top:-30%; right:-24%; transform:rotate(18deg); background-image:url(natal-gorro.svg); }
+  :root[data-theme="natal"] .auth-logo .logo-frame { margin-top:34px !important; margin-bottom:36px !important; }
+  .xmas-lights { display:none; position:absolute; left:0; right:0; top:0; height:30px; pointer-events:none; overflow:hidden; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='24'%3E%3Cpath d='M0,4 Q30,20 60,4' fill='none' stroke='%23303030' stroke-width='2'/%3E%3C/svg%3E") repeat-x; }
+  :root[data-theme="natal"] .xmas-lights { display:block; }
+  :root[data-theme="natal"] header { position:relative; padding-top:38px; }
+  .xmas-lights .bulb { position:absolute; width:9px; height:14px; border-radius:50% 50% 45% 45%; background:var(--c); box-shadow:0 0 9px 2px var(--c); animation:bulbBlink 1.8s ease-in-out infinite; animation-delay:var(--d); }
+  .xmas-lights .bulb::before { content:''; position:absolute; top:-3px; left:2px; width:5px; height:4px; border-radius:1px; background:#4a4a4a; }
+  @keyframes bulbBlink { 0%,100% { opacity:1; } 50% { opacity:.35; box-shadow:0 0 2px 0 var(--c); } }
+  @media (prefers-reduced-motion: reduce) { .xmas-lights .bulb { animation:none; } }
+  .xmas-message { display:none; text-align:center; font-size:14px; line-height:1.5; color:var(--cream); background:linear-gradient(90deg, rgba(212,32,44,.16), rgba(46,139,71,.16)); border:1px solid rgba(212,32,44,.35); border-radius:12px; padding:12px 16px; margin-bottom:18px; }
+  :root[data-theme="natal"] .xmas-message:not(:empty) { display:block; }
   body { background: var(--black); color: var(--cream); font-family: 'Inter', sans-serif; min-height: 100vh; }
 
   /* ── NOTIFICATIONS ── */
@@ -629,8 +645,9 @@
 
     onSnapshot(doc(db,'settings','app'), snap => {
       const data = snap.exists() ? snap.data() : {};
-      DB.settings = { bookingsPaused: !!data.bookingsPaused, pauseMessage: data.pauseMessage || '', theme: data.theme || '' };
+      DB.settings = { bookingsPaused: !!data.bookingsPaused, pauseMessage: data.pauseMessage || '', theme: data.theme || '', themeMessage: data.themeMessage || '' };
       if (typeof applyTheme==='function') applyTheme(DB.settings.theme);
+      if (typeof applyThemeMessage==='function') applyThemeMessage(DB.settings.themeMessage);
       if (window.currentUser?.isAdmin) { if (typeof syncPauseUI==='function') syncPauseUI(); }
       else if (typeof applyBookingPauseUI==='function') applyBookingPauseUI();
     }, err => console.warn('Settings listener error:', err.code));
@@ -1052,8 +1069,9 @@
 
 <!-- HEADER -->
 <header>
+  <div class="xmas-lights" id="xmas-lights" aria-hidden="true"></div>
   <div class="logo-img-wrap">
-    <img src="logo.png" alt="Barbearia Orlando" style="height:58px;width:58px;object-fit:contain;border-radius:50%;">
+    <span class="logo-frame"><img src="logo.png" alt="Barbearia Orlando" style="height:58px;width:58px;object-fit:contain;border-radius:50%;"><span class="xmas-wreath"></span><span class="xmas-hat"></span></span>
     <span class="logo">BARBEARIA <span>ORLANDO</span></span>
     <span class="theme-deco" id="theme-deco"></span>
   </div>
@@ -1087,10 +1105,11 @@
 <div class="auth-screen" id="auth-screen">
   <div class="auth-box">
     <div class="auth-logo">
-      <img src="logo.png" alt="Barbearia Orlando" style="width:160px;height:160px;object-fit:contain;border-radius:50%;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto;">
+      <span class="logo-frame" style="display:block;width:160px;margin:0 auto 10px"><img src="logo.png" alt="Barbearia Orlando" style="width:160px;height:160px;object-fit:contain;border-radius:50%;display:block;"><span class="xmas-wreath"></span><span class="xmas-hat"></span></span>
       <h2>BARBEARIA ORLANDO</h2>
       <p>Entre ou crie a sua conta para agendar</p>
     </div>
+    <div class="xmas-message"></div>
     <div class="auth-tabs">
       <button class="auth-tab active" id="tab-login"    onclick="switchTab('login')">Entrar</button>
       <button class="auth-tab"        id="tab-register" onclick="switchTab('register')">Registar</button>
@@ -1215,6 +1234,8 @@
           Muda as cores, o enfeite no topo e o efeito a cair, para todos os clientes e para o painel. Fica ativo até escolheres outro ou "Sem tema".
         </div>
         <select id="theme-select" style="width:100%;margin-bottom:14px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--cream);padding:11px 14px;font-size:14px;font-family:'Inter',sans-serif"></select>
+        <label style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px">Mensagem de Boas Festas (só no tema de Natal)</label>
+        <textarea id="theme-message" rows="2" style="width:100%;margin-bottom:14px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--cream);font-family:'Inter',sans-serif;font-size:13px"></textarea>
         <button class="btn-sm btn-add" onclick="saveTheme()">Guardar</button>
       </div>
     </div>
@@ -1441,6 +1462,8 @@
 
 <!-- ═══════ BOOKING SCREEN ═══════ -->
 <div class="booking-screen" id="booking-screen">
+
+  <div class="xmas-message"></div>
 
   <!-- Pedido de avaliação no Google (ver maybeShowReviewPrompt) -->
   <div id="review-prompt" style="display:none;background:rgba(var(--gold-rgb),.08);border:1px solid rgba(var(--gold-rgb),.35);border-radius:12px;padding:18px 18px 16px;margin-bottom:18px;text-align:center">
@@ -2011,7 +2034,7 @@ const DB = {
   closures:  [],
   extraHours: [],
   busySlots: [],
-  settings:  { bookingsPaused: false, pauseMessage: '', theme: '' }
+  settings:  { bookingsPaused: false, pauseMessage: '', theme: '', themeMessage: '' }
 };
 
 const HOMER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="56" height="56">
@@ -3319,6 +3342,39 @@ function applyTheme(key) {
   const deco = document.getElementById('theme-deco');
   if (deco) deco.textContent = t ? THEMES[t].deco : '';
   renderThemeEffect(t);
+  renderXmasLights();
+}
+
+// Luzinhas de Natal no topo: duas lâmpadas por cada curva do fio (60px)
+function renderXmasLights() {
+  const box = document.getElementById('xmas-lights');
+  if (!box) return;
+  box.innerHTML = '';
+  if (document.documentElement.dataset.theme !== 'natal') return;
+  const colors = ['#ff3b3b', '#2ecc71', '#ffd54f', '#4fc3f7'];
+  const w = box.clientWidth || window.innerWidth;
+  let n = 0;
+  for (let x = 0; x < w; x += 60) {
+    [[15, 9], [45, 9]].forEach(([dx, y]) => {
+      const b = document.createElement('span');
+      b.className = 'bulb';
+      b.style.left = (x + dx - 4) + 'px';
+      b.style.top = y + 'px';
+      b.style.setProperty('--c', colors[n % colors.length]);
+      b.style.setProperty('--d', ((n % 4) * 0.45) + 's');
+      box.appendChild(b); n++;
+    });
+  }
+}
+window.addEventListener('resize', () => { clearTimeout(window._lightsT); window._lightsT = setTimeout(renderXmasLights, 200); });
+
+// Mensagem de Boas Festas (ecrã de entrada e ecrã do cliente). Só se vê no
+// tema de Natal (CSS). Guardada no aparelho para aparecer logo ao abrir.
+const DEFAULT_XMAS_MESSAGE = '🎄 A Barbearia Orlando deseja-lhe Boas Festas e um Feliz Ano Novo!';
+function applyThemeMessage(msg) {
+  const text = (msg || '').trim() || DEFAULT_XMAS_MESSAGE;
+  try { localStorage.setItem('bo_theme_msg', text); } catch(e) {}
+  document.querySelectorAll('.xmas-message').forEach(el => { el.textContent = text; });
 }
 
 function renderThemeEffect(key) {
@@ -3360,15 +3416,22 @@ function syncThemeUI() {
   const cur = THEMES[DB.settings.theme] ? DB.settings.theme : '';
   sel.value = cur;
   if (chip) chip.textContent = cur ? THEMES[cur].label : 'Sem tema';
+  const msg = document.getElementById('theme-message');
+  if (msg && document.activeElement !== msg) {
+    msg.value = DB.settings.themeMessage || '';
+    msg.placeholder = DEFAULT_XMAS_MESSAGE;
+  }
 }
 
 // Show the last theme straight away, before Firestore (or the Firebase SDK) loads
-try { applyTheme(localStorage.getItem('bo_theme') || ''); } catch(e) {}
+try { applyTheme(localStorage.getItem('bo_theme') || ''); applyThemeMessage(localStorage.getItem('bo_theme_msg') || ''); } catch(e) {}
 
 async function saveTheme() {
   const theme = document.getElementById('theme-select').value;
-  DB.settings = { ...DB.settings, theme };
+  const themeMessage = (document.getElementById('theme-message')?.value || '').trim();
+  DB.settings = { ...DB.settings, theme, themeMessage };
   applyTheme(theme);
+  applyThemeMessage(themeMessage);
   try {
     await fsSet('settings', 'app', DB.settings);
   } catch(e) { console.warn('Erro ao guardar tema:', e); }

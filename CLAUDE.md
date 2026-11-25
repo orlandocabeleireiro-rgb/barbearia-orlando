@@ -54,7 +54,7 @@ O objeto `DB` (`clients`, `bookings`, `admins`, `waitlist`, `services`, `barbers
 | `extra_hours` | horário extra fora do normal | `barberId`, datas, `timeStart`/`timeEnd` |
 | `services` / `barbers` | catálogo | são criados com valores por omissão se a coleção estiver vazia (`seedIfEmpty`) |
 | `notifications` | notificações do sino | `forClientId`, `adminOnly`, `read`, `createdAtMs` |
-| `settings/app` | `bookingsPaused`, `pauseMessage` | pausa as novas marcações dos clientes |
+| `settings/app` | `bookingsPaused`, `pauseMessage`, `theme`, `themeMessage` | pausa as novas marcações dos clientes; tema das festividades e mensagem de Boas Festas |
 
 Os clientes só leem os seus próprios `clients/bookings/waitlist/notifications` (com queries `where('clientId','==',uid)`). As regras do Firestore impõem o mesmo, por isso **nunca faças fetch da coleção inteira no lado do cliente**: é rejeitado.
 
@@ -74,6 +74,7 @@ Os clientes só leem os seus próprios `clients/bookings/waitlist/notifications`
 - **Atividade do cliente** (coluna "Atividade" e filtro na lista de Clientes, `clientActivity`): 🟢 Ativo = marcação nos últimos 3 meses ou futura; 🟡 Pouco ativo = última há mais de 3 meses; 🔴 Sem marcações = registado há mais de 1 mês e nunca marcou; 🆕 Novo = registado há menos de 1 mês sem marcações. Canceladas não contam; as do admin contam quando têm `clientId`. Não mostra valores.
 - **Pedido de avaliação no Google** (`maybeShowReviewPrompt`): aviso no ecrã do cliente quando tem pelo menos 1 marcação passada (não cancelada nem falta). "Avaliar agora" (abre `SOCIAL_LINKS.google_review`) e "Já avaliei" gravam `reviewStatus` (`clicked`/`done`) e não volta. "Agora não" grava `reviewPromptCount` e `reviewSnoozedUntilBooking`; só volta depois de um corte mais recente, no máximo 2 vezes. Nada é oferecido em troca (regras do Google). O admin vê a resposta na coluna Atividade.
 - **Quem marcou** (`bookedByLabel`): coluna "Marcado por" na lista de Marcações (só aí, não na agenda). Mostra "Cliente (app)" (`bookedVia:'client'`), "Lista de espera" (`fromWaitlist`), o nome do admin (`createdBy`, gravado nas marcações do painel desde esta versão) ou "Admin" nas antigas.
+- **Tema de Natal** (só com `data-theme="natal"`, tudo por CSS): coroa de azevinho (`natal-coroa.svg`) e gorro (`natal-gorro.svg`) à volta do logótipo (`.logo-frame`), luzinhas a piscar no topo (`renderXmasLights`) e a mensagem de Boas Festas (`.xmas-message`, texto de `settings.themeMessage` ou `DEFAULT_XMAS_MESSAGE`) no ecrã de entrada e no do cliente. Com outro tema ou sem tema, nada disto aparece.
 - **Permissões:** um `manager` só vê os separadores incluídos em `permissions` (`applyAdminPermissions`). Um `superadmin` vê tudo.
 
 ## Preferências do Orlando
