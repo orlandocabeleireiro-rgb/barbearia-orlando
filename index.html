@@ -55,6 +55,15 @@
   @media (prefers-reduced-motion: reduce) { .xmas-lights .bulb { animation:none; } }
   .xmas-message { display:none; text-align:center; font-size:14px; line-height:1.5; color:var(--cream); background:linear-gradient(90deg, rgba(212,32,44,.16), rgba(46,139,71,.16)); border:1px solid rgba(212,32,44,.35); border-radius:12px; padding:12px 16px; margin-bottom:18px; }
   :root[data-theme="natal"] .xmas-message:not(:empty) { display:block; }
+  /* Natal com três cores: vermelho nos botões (--gold), dourado nos títulos, verde nos pormenores */
+  :root[data-theme="natal"] { --xm-gold:#E6BE5A; --xm-green:#3FB35F; --xm-green-rgb:63,179,95; }
+  :root[data-theme="natal"] :is(.logo, .auth-logo h2, .stat-val, .pending-title, .waitlist-banner h3, .gdpr-modal h3, .crop-modal h3, .mb-date-day, .svc-price, .mb-price, .time-lbl, .wl-section-lbl) { color:var(--xm-gold); }
+  :root[data-theme="natal"] .chip-gold { background:rgba(var(--xm-green-rgb),.15); color:var(--xm-green); border-color:rgba(var(--xm-green-rgb),.35); }
+  :root[data-theme="natal"] .step.active { color:var(--xm-green); }
+  :root[data-theme="natal"] .step.active .step-num { background:var(--xm-green); border-color:var(--xm-green); }
+  :root[data-theme="natal"] .step.done .step-num { border-color:var(--xm-green); color:var(--xm-green); }
+  :root[data-theme="natal"] :is(.cal-day.today:not(.selected), .agenda-day-btn.today-btn) { border-color:var(--xm-green); color:var(--xm-green); }
+  :root[data-theme="natal"] :is(.auth-switch a, .gdpr-box a, .check-row span a) { color:var(--xm-green); }
   body { background: var(--black); color: var(--cream); font-family: 'Inter', sans-serif; min-height: 100vh; }
 
   /* ── NOTIFICATIONS ── */
