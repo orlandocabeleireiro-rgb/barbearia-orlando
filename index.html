@@ -56,6 +56,10 @@
   @media (prefers-reduced-motion: reduce) { .xmas-lights .bulb { animation:none; } }
   .xmas-message { display:none; text-align:center; font-size:14px; line-height:1.5; color:var(--cream); background:linear-gradient(90deg, rgba(212,32,44,.16), rgba(46,139,71,.16)); border:1px solid rgba(212,32,44,.35); border-radius:12px; padding:12px 16px; margin-bottom:18px; }
   :root[data-theme="natal"] .xmas-message:not(:empty) { display:block; }
+  .xmas-tree { display:none; position:absolute; top:6px; right:4px; width:84px; height:106px; background:url(natal-arvore.svg) no-repeat center/contain; pointer-events:none; }
+  :root[data-theme="natal"] .xmas-tree { display:block; animation:treeIn .6s ease-out; }
+  @keyframes treeIn { from { opacity:0; transform:translateY(8px) scale(.9); } to { opacity:1; transform:none; } }
+  @media (prefers-reduced-motion: reduce) { :root[data-theme="natal"] .xmas-tree { animation:none; } }
   /* Natal com três cores: vermelho nos botões (--gold), dourado nos títulos, verde nos pormenores */
   :root[data-theme="natal"] { --xm-gold:#E6BE5A; --xm-green:#3FB35F; --xm-green-rgb:63,179,95; }
   :root[data-theme="natal"] :is(.logo, .auth-logo h2, .stat-val, .pending-title, .waitlist-banner h3, .gdpr-modal h3, .crop-modal h3, .mb-date-day, .svc-price, .mb-price, .time-lbl, .wl-section-lbl) { color:var(--xm-gold); }
@@ -444,7 +448,7 @@
   .btn-primary { background:var(--gold);color:var(--black); }
   .btn-primary:hover { background:var(--gold-light); }
   .btn-primary:disabled { opacity:.4;cursor:not-allowed; }
-  .confirm-box { text-align:center;padding:56px 20px; }
+  .confirm-box { position:relative;text-align:center;padding:56px 20px; }
   .confirm-icon { width:76px;height:76px;border-radius:50%;background:#1A2A15;border:2px solid #4CAF50;display:flex;align-items:center;justify-content:center;font-size:1.9rem;margin:0 auto 24px;animation:pop .4s cubic-bezier(.175,.885,.32,1.275) both; }
   @keyframes pop { from{transform:scale(0);opacity:0} to{transform:scale(1);opacity:1} }
   .confirm-title { font-family:'Bebas Neue',sans-serif;font-size:2.4rem;letter-spacing:3px;margin-bottom:10px; }
@@ -1593,6 +1597,7 @@
 
   <div class="panel" id="panel-4">
     <div class="confirm-box">
+      <div class="xmas-tree" aria-hidden="true"></div>
       <div class="confirm-icon">✓</div>
       <h1 class="confirm-title">Marcação Confirmada!</h1>
       <p class="confirm-sub">A sua marcação foi registada com sucesso.<br>Até já, <strong id="conf-name">—</strong>!</p>

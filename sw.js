@@ -15,7 +15,8 @@ const APP_SHELL = [
   './favicon-32.png',
   './favicon-16.png',
   './logo.png',
-  './natal-coroa.svg'
+  './natal-coroa.svg',
+  './natal-arvore.svg'
 ];
 
 self.addEventListener('install', (event) => {
