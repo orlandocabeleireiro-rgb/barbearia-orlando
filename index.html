@@ -639,6 +639,7 @@
     onSnapshot(collection(db,'busy_slots'), snap => {
       DB.busySlots = snap.docs.map(d => d.data());
       if (typeof BUSY!=='undefined') Object.keys(BUSY).forEach(k=>delete BUSY[k]);
+      if (window.currentUser?.isAdmin && typeof scheduleWaitlistAutoFill === 'function') scheduleWaitlistAutoFill();
       if (window.currentUser && !window.currentUser.isAdmin && bState.date) {
         const [y,m,d]=bState.date.split('-').map(Number); renderTimeSlots(y,m-1,d);
       }
@@ -700,6 +701,7 @@
 
     _bookingsUnsub = onSnapshot(bookingsQuery, snap => {
       DB.bookings = snap.docs.map(d => ({id:d.id,...d.data()}));
+      if (window.currentUser?.isAdmin && typeof scheduleWaitlistAutoFill === 'function') scheduleWaitlistAutoFill();
       if (window.currentUser?.isAdmin) refreshAdmin();
       else if (window.currentUser) {
         const mv = document.getElementById('cview-mybookings');
@@ -710,6 +712,7 @@
 
     _waitlistUnsub = onSnapshot(waitlistQuery, snap => {
       DB.waitlist = snap.docs.map(d => ({id:d.id,...d.data()}));
+      if (window.currentUser?.isAdmin && typeof scheduleWaitlistAutoFill === 'function') scheduleWaitlistAutoFill();
       if (window.currentUser?.isAdmin) renderWaitlistTable();
       if (window.currentUser && !window.currentUser.isAdmin && bState.date) {
         checkWaitlistBanner();
@@ -851,10 +854,21 @@
   // If two people try to grab the same slot within moments of each other,
   // only one transaction wins — the other cleanly fails with a
   // 'slot-taken' error instead of silently double-booking.
-  window._fbCreateBookingTransactional = async function(booking, slots) {
+  // waitlistId (optional): the waitlist request this booking fills. It must
+  // still be 'pendente' and is marked 'resolvido' in the same transaction, so
+  // the request is never booked twice (e.g. by the admin panel and the
+  // waitlist Cloud Function at the same time).
+  window._fbCreateBookingTransactional = async function(booking, slots, waitlistId) {
     const slotIds = slots.map(t => booking.barberId + '_' + booking.rawDate + '_' + t);
     try {
       await runTransaction(db, async (tx) => {
+        const wlRef = waitlistId ? doc(db, 'waitlist', waitlistId) : null;
+        if (wlRef) {
+          const wlSnap = await tx.get(wlRef);
+          if (!wlSnap.exists() || wlSnap.data().status !== 'pendente') {
+            const e = new Error('slot-taken'); e.code = 'slot-taken'; throw e;
+          }
+        }
         for (const slotId of slotIds) {
           const slotRef = doc(db, 'busy_slots', slotId);
           const slotSnap = await tx.get(slotRef);
@@ -868,6 +882,7 @@
           tx.set(doc(db, 'busy_slots', slotId), { barberId: booking.barberId, date: booking.rawDate, time: slots[i] });
         });
         tx.set(doc(db, 'bookings', booking.id), booking);
+        if (wlRef) tx.update(wlRef, { status: 'resolvido', resolvedAt: Date.now(), resolvedBy: 'painel' });
       });
       return true;
     } catch (e) {
@@ -1804,6 +1819,10 @@
     <input type="hidden" id="mbr-photo">
     <div class="mf"><label>Nome</label><input type="text" id="mbr-name" placeholder="Nome completo"></div>
     <div class="mf"><label>Função</label><input type="text" id="mbr-role" placeholder="Ex: Barbeiro, Cabeleireira, Esteticista..."></div>
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:-4px 0 14px;font-size:13px">
+      <input type="checkbox" id="mbr-no-waitlist" style="width:auto">
+      <span>Não usar na lista de espera automática</span>
+    </label>
     <div class="mf">
       <label>Foto do Barbeiro</label>
       <div class="photo-upload-wrap">
@@ -4432,6 +4451,7 @@ function openModal(type) {
     document.getElementById('modal-barber-title').textContent='Novo Barbeiro';
     document.getElementById('mbr-id').value='';
     ['mbr-name','mbr-role','mbr-icon','mbr-photo'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('mbr-no-waitlist').checked=false;
     document.getElementById('mbr-photo-preview').innerHTML='📷';
     document.getElementById('mbr-photo-remove').classList.remove('show');
     document.getElementById('mbr-photo-input').value='';
@@ -4778,67 +4798,80 @@ async function saveBooking() {
 }
 
 // ── Check and fill waitlist after a cancellation ──
-async function checkAndFillWaitlist(cancelledBooking) {
-  if (!cancelledBooking) return;
-
-  // Find first pending waitlist entry matching same barber + date + service
-  // Find first waitlist entry matching barber + date + service + preferred time
-  const match = DB.waitlist.find(w =>
-    w.status === 'pendente' &&
-    (w.barberId === cancelledBooking.barberId || !w.barberId) &&
-    w.date      === cancelledBooking.rawDate &&
-    w.serviceId === cancelledBooking.serviceId &&
-    (!w.preferredTimes || w.preferredTimes.length === 0 || w.preferredTimes.includes(cancelledBooking.time))
-  );
-
-  // Fallback: same barber (or no preference) + date, preferred time matches
-  const fallback = !match && DB.waitlist.find(w =>
-    w.status   === 'pendente' &&
-    (w.barberId === cancelledBooking.barberId || !w.barberId) &&
-    w.date     === cancelledBooking.rawDate &&
-    (!w.preferredTimes || w.preferredTimes.length === 0 || w.preferredTimes.includes(cancelledBooking.time))
-  );
-
-  const winner = match || fallback;
-  if (!winner) return;
-
-  // Create new booking for waitlist client using the freed slot
-  const newBooking = {
-    id:          uid('bk'),
-    clientId:    winner.clientId,
-    clientName:  winner.clientName,
-    serviceId:   cancelledBooking.serviceId,
-    service:     cancelledBooking.service,
-    barberId:    cancelledBooking.barberId,
-    barber:      cancelledBooking.barber,
-    rawDate:     cancelledBooking.rawDate,
-    date:        cancelledBooking.date,
-    time:        cancelledBooking.time,
-    price:       cancelledBooking.price,
-    status:      'confirmada',
-    fromWaitlist: true
-  };
-
-  DB.bookings.push(newBooking);
-  await fsSet('bookings', newBooking.id, newBooking);
-  invalidateBusy(newBooking.barberId, newBooking.rawDate);
-  await markSlotsBusy(newBooking.barberId, newBooking.rawDate, slotsForBooking(newBooking.time, newBooking.serviceId));
-
-  // Mark waitlist entry as resolved
-  winner.status = 'resolvido';
-  await fsUpdate('waitlist', winner.id, { status: 'resolvido' });
-
-  // Notify admin and client
-  addNotif('marcacao', '✅ Vaga preenchida automaticamente',
-    `${winner.clientName} foi movido da lista de espera para ${newBooking.date} às ${newBooking.time} (${newBooking.service} com ${newBooking.barber}).`,
-    winner.clientId
-  );
-  showToast('aprovado', 'Lista de espera', `Vaga atribuída automaticamente a ${winner.clientName}!`);
-
-  // Send confirmation email if possible
-  const client = DB.clients.find(c => c.id === winner.clientId);
-  if (client) sendEmailMarcacao(client, newBooking);
+// ── Lista de espera: marcar automaticamente quando abre vaga ──
+// Runs in the admin panel (the only place that can see every waitlist entry
+// and write bookings for other clients). Whenever bookings, busy slots, the
+// waitlist or closures change, every pending request for today or later is
+// checked: the first of the client's preferred times that is now free (with
+// their barber, or any barber if they had no preference) becomes a real
+// booking. Uses the same transaction as normal bookings, so two admin devices
+// open at once can't book the same slot twice.
+let _wlFillTimer = null, _wlFillRunning = false;
+function scheduleWaitlistAutoFill() {
+  if (!currentUser?.isAdmin) return;
+  clearTimeout(_wlFillTimer);
+  _wlFillTimer = setTimeout(autoFillWaitlist, 1500);
 }
+
+async function autoFillWaitlist() {
+  if (_wlFillRunning || !currentUser?.isAdmin || !window._fbCreateBookingTransactional) return;
+  _wlFillRunning = true;
+  try {
+    const today = isoDaysAgo(0);
+    const now = new Date(), nowMin = now.getHours()*60 + now.getMinutes();
+    const pending = (DB.waitlist||[])
+      .filter(w => w.status === 'pendente' && w.date && w.date >= today && w.preferredTimes && w.preferredTimes.length)
+      .sort((a, b) => (ptDateToIso(a.requestedAt)||'9999').localeCompare(ptDateToIso(b.requestedAt)||'9999') || String(a.id).localeCompare(String(b.id)));  // quem pediu primeiro
+    for (const w of pending) {
+      // Already has a booking that day (e.g. took another time meanwhile) → leave it for the admin
+      if (w.clientId && DB.bookings.some(b => b.clientId === w.clientId && b.rawDate === w.date && b.status !== 'cancelada')) continue;
+      const svc = DB.services.find(x => x.id === w.serviceId);
+      if (!svc) continue;
+      const [y, m, d] = w.date.split('-').map(Number);
+      const barbers = DB.barbers.filter(b => !b.noWaitlist && (!w.barberId || b.id === w.barberId));
+      const times = [...w.preferredTimes].sort((a, b) => toMin(a) - toMin(b));
+      let done = false;
+      for (const time of times) {
+        if (w.date === today && toMin(time) <= nowMin) continue;
+        for (const br of barbers) {
+          if (!avail(time, svc.dur || 30, getBusy(br.id, y, m-1, d))) continue;
+          const need = slotsForBooking(time, svc.id);
+          // Double-check against the bookings themselves, in case busy_slots is out of sync
+          if (DB.bookings.some(b => b.barberId === br.id && b.rawDate === w.date && b.status !== 'cancelada'
+                && slotsForBooking(b.time, b.serviceId).some(t => need.includes(t)))) continue;
+          const booking = {
+            id: uid('bk'), clientId: w.clientId || null, clientName: w.clientName,
+            serviceId: svc.id, service: svc.name, barberId: br.id, barber: br.name,
+            rawDate: w.date, date: w.dateLabel || new Date(w.date+'T12:00:00').toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long',year:'numeric'}),
+            time, price: svc.price, status: 'confirmada',
+            clientPreference: w.barberId ? 'com' : 'sem',
+            fromWaitlist: true, createdAtMs: Date.now()
+          };
+          let ok = false;
+          try { ok = await window._fbCreateBookingTransactional(booking, need, w.id); }
+          catch (e) { console.warn('Lista de espera: marcação automática falhou:', e); }
+          if (!ok) { invalidateBusy(br.id, w.date); continue; }
+          w.status = 'resolvido';  // already saved by the transaction
+          invalidateBusy(br.id, w.date);
+          addNotif('marcacao', '✅ Vaga preenchida automaticamente',
+            `${w.clientName} foi movido da lista de espera para ${booking.date} às ${time} (${svc.name} com ${br.name}).`,
+            w.clientId);
+          showToast('aprovado', 'Lista de espera', `Vaga atribuída automaticamente a ${w.clientName} (${time})!`);
+          const client = DB.clients.find(c => c.id === w.clientId);
+          if (client) sendEmailMarcacao(client, booking);
+          done = true; break;
+        }
+        if (done) break;
+      }
+    }
+  } finally {
+    _wlFillRunning = false;
+  }
+}
+
+// Kept for the cancel/delete paths: the actual matching now happens in
+// autoFillWaitlist, which also catches client cancellations and moved bookings.
+function checkAndFillWaitlist() { scheduleWaitlistAutoFill(); }
 
 function deleteBooking(id) {
   const b=DB.bookings.find(x=>x.id===id);
@@ -4991,6 +5024,7 @@ function editBarber(id) {
   document.getElementById('mbr-id').value=id;
   document.getElementById('mbr-name').value=b.name;
   document.getElementById('mbr-role').value=b.role;
+  document.getElementById('mbr-no-waitlist').checked=!!b.noWaitlist;
   document.getElementById('mbr-icon').value=['SOLANGE_SVG','ARIANE_SVG','HOMER_SVG','MARGE_SVG','LISA_SVG'].includes(b.icon)?'':b.icon||'';
   // Load photo if exists
   const photo = b.photo || '';
@@ -5038,6 +5072,7 @@ async function sendBarberAdminPasswordReset() {
 async function saveBarber() {
   const id=v('mbr-id'), name=v('mbr-name').trim(), role=v('mbr-role').trim();
   const photo=v('mbr-photo'), icon=v('mbr-icon').trim()||'💈';
+  const noWaitlist=document.getElementById('mbr-no-waitlist').checked;
   if (!name||!role) { showModalErr('modal-barber-err','Preencha o nome e a função.'); return; }
 
   const wantsAdmin = document.getElementById('mbr-adm-enable').checked;
@@ -5062,10 +5097,10 @@ async function saveBarber() {
   let barberRecordId = id;
   if (id) {
     const b=DB.barbers.find(x=>x.id===id);
-    b.name=name; b.role=role; b.icon=icon; b.photo=photo||null;
-    fsUpdate('barbers',id,{name,role,icon,photo:photo||null});
+    b.name=name; b.role=role; b.icon=icon; b.photo=photo||null; b.noWaitlist=noWaitlist;
+    fsUpdate('barbers',id,{name,role,icon,photo:photo||null,noWaitlist});
   } else {
-    const nb={ id:uid('br'), name, role, icon, photo:photo||null };
+    const nb={ id:uid('br'), name, role, icon, photo:photo||null, noWaitlist };
     DB.barbers.push(nb);
     fsSet('barbers',nb.id,nb);
     barberRecordId = nb.id;
