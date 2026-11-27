@@ -17,13 +17,14 @@ function tomorrowInLisbon(now = new Date()) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Lisbon', year: 'numeric', month: '2-digit', day: '2-digit' }).format(t);
 }
 
-async function sendReminderEmail(params, privateKey, fetchFn) {
+// Envia um email por um modelo do EmailJS (API REST, com a Private Key)
+async function sendEmailJS(templateId, params, privateKey, fetchFn = fetch) {
   const res = await fetchFn('https://api.emailjs.com/api/v1.0/email/send', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       service_id: EMAILJS.service,
-      template_id: EMAILJS.template,
+      template_id: templateId,
       user_id: EMAILJS.publicKey,
       accessToken: privateKey,
       template_params: params
@@ -31,6 +32,7 @@ async function sendReminderEmail(params, privateKey, fetchFn) {
   });
   if (!res.ok) throw new Error(`EmailJS ${res.status}: ${await res.text()}`);
 }
+const sendReminderEmail = (params, privateKey, fetchFn) => sendEmailJS(EMAILJS.template, params, privateKey, fetchFn);
 
 async function sendRemindersFor(db, dateIso, privateKey, fetchFn = fetch, pauseMs = 1100) {
   const snap = await db.collection('bookings').where('rawDate', '==', dateIso).get();
@@ -63,4 +65,4 @@ async function sendRemindersFor(db, dateIso, privateKey, fetchFn = fetch, pauseM
   return result;
 }
 
-module.exports = { tomorrowInLisbon, sendRemindersFor };
+module.exports = { tomorrowInLisbon, sendRemindersFor, sendEmailJS };

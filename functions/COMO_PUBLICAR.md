@@ -95,3 +95,28 @@ firebase deploy --only functions:sendBookingReminders --project barbearia-orland
 Faz uma marcação para amanhã com um cliente com o teu email (ex.: o
 Henrique). Às 18:00 deve chegar o lembrete. No EmailJS, em **Email
 History**, aparece cada envio.
+
+---
+
+# Lista de espera automática (`waitlistOnSlotFreed`, `waitlistOnNewRequest`)
+
+Sempre que uma vaga abre (alguém desmarca, uma marcação é apagada ou mudada
+de hora) ou entra um pedido novo na lista de espera, o Firebase marca
+automaticamente o primeiro cliente à espera dessa hora e envia-lhe o email de
+confirmação — mesmo sem ninguém com o site aberto. Usa a mesma Private Key do
+EmailJS que os lembretes (`EMAILJS_PRIVATE_KEY`, já guardada).
+
+## Publicar (Cloud Shell)
+
+```
+rm -rf barbearia-orlando && git clone https://github.com/orlandocabeleireiro-rgb/barbearia-orlando.git && cd barbearia-orlando/functions && npm install && cd ..
+```
+
+```
+firebase deploy --only functions:waitlistOnSlotFreed,functions:waitlistOnNewRequest --project barbearia-orlando-c660c
+```
+
+- Se perguntar se queres ativar serviços (Eventarc, Pub/Sub, …), responde `y`.
+- Se der um erro de permissões na primeira vez ("Permission denied while using
+  the Eventarc Service Agent"), espera 2–3 minutos e volta a correr o comando.
+- No fim deve aparecer `Deploy complete!`.

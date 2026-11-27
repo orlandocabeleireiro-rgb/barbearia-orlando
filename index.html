@@ -854,10 +854,21 @@
   // If two people try to grab the same slot within moments of each other,
   // only one transaction wins — the other cleanly fails with a
   // 'slot-taken' error instead of silently double-booking.
-  window._fbCreateBookingTransactional = async function(booking, slots) {
+  // waitlistId (optional): the waitlist request this booking fills. It must
+  // still be 'pendente' and is marked 'resolvido' in the same transaction, so
+  // the request is never booked twice (e.g. by the admin panel and the
+  // waitlist Cloud Function at the same time).
+  window._fbCreateBookingTransactional = async function(booking, slots, waitlistId) {
     const slotIds = slots.map(t => booking.barberId + '_' + booking.rawDate + '_' + t);
     try {
       await runTransaction(db, async (tx) => {
+        const wlRef = waitlistId ? doc(db, 'waitlist', waitlistId) : null;
+        if (wlRef) {
+          const wlSnap = await tx.get(wlRef);
+          if (!wlSnap.exists() || wlSnap.data().status !== 'pendente') {
+            const e = new Error('slot-taken'); e.code = 'slot-taken'; throw e;
+          }
+        }
         for (const slotId of slotIds) {
           const slotRef = doc(db, 'busy_slots', slotId);
           const slotSnap = await tx.get(slotRef);
@@ -871,6 +882,7 @@
           tx.set(doc(db, 'busy_slots', slotId), { barberId: booking.barberId, date: booking.rawDate, time: slots[i] });
         });
         tx.set(doc(db, 'bookings', booking.id), booking);
+        if (wlRef) tx.update(wlRef, { status: 'resolvido', resolvedAt: Date.now(), resolvedBy: 'painel' });
       });
       return true;
     } catch (e) {
@@ -4836,11 +4848,10 @@ async function autoFillWaitlist() {
             fromWaitlist: true, createdAtMs: Date.now()
           };
           let ok = false;
-          try { ok = await window._fbCreateBookingTransactional(booking, need); }
+          try { ok = await window._fbCreateBookingTransactional(booking, need, w.id); }
           catch (e) { console.warn('Lista de espera: marcação automática falhou:', e); }
           if (!ok) { invalidateBusy(br.id, w.date); continue; }
-          w.status = 'resolvido';
-          await fsUpdate('waitlist', w.id, { status: 'resolvido' }).catch(e => console.warn(e));
+          w.status = 'resolvido';  // already saved by the transaction
           invalidateBusy(br.id, w.date);
           addNotif('marcacao', '✅ Vaga preenchida automaticamente',
             `${w.clientName} foi movido da lista de espera para ${booking.date} às ${time} (${svc.name} com ${br.name}).`,

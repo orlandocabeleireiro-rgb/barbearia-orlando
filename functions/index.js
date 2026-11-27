@@ -72,3 +72,30 @@ exports.sendBookingReminders = onSchedule({
   const result = await sendRemindersFor(getFirestore(), dateIso, EMAILJS_PRIVATE_KEY.value());
   logger.info('Lembretes de ' + dateIso, result);
 });
+
+// ── Lista de espera automática ──
+//
+// Quando uma vaga abre (um busy_slot é apagado: marcação cancelada, apagada
+// ou mudada de hora) ou entra um pedido novo na lista de espera, marca
+// automaticamente o primeiro cliente à espera dessa hora e envia-lhe o email
+// de confirmação. Funciona sempre, mesmo sem o site aberto. A lógica está em
+// waitlist.js.
+
+const { onDocumentDeleted, onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { fillWaitlistForDate } = require('./waitlist');
+
+exports.waitlistOnSlotFreed = onDocumentDeleted({
+  document: 'busy_slots/{slotId}', region: 'us-central1', secrets: [EMAILJS_PRIVATE_KEY]
+}, async (event) => {
+  const date = event.data?.data()?.date;
+  const n = await fillWaitlistForDate(getFirestore(), date, { privateKey: EMAILJS_PRIVATE_KEY.value() });
+  if (n) logger.info(`Lista de espera: ${n} marcação(ões) automática(s) em ${date}`);
+});
+
+exports.waitlistOnNewRequest = onDocumentCreated({
+  document: 'waitlist/{wlId}', region: 'us-central1', secrets: [EMAILJS_PRIVATE_KEY]
+}, async (event) => {
+  const date = event.data?.data()?.date;
+  const n = await fillWaitlistForDate(getFirestore(), date, { privateKey: EMAILJS_PRIVATE_KEY.value() });
+  if (n) logger.info(`Lista de espera: ${n} marcação(ões) automática(s) em ${date}`);
+});
