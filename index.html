@@ -1807,6 +1807,10 @@
     <input type="hidden" id="mbr-photo">
     <div class="mf"><label>Nome</label><input type="text" id="mbr-name" placeholder="Nome completo"></div>
     <div class="mf"><label>Função</label><input type="text" id="mbr-role" placeholder="Ex: Barbeiro, Cabeleireira, Esteticista..."></div>
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:-4px 0 14px;font-size:13px">
+      <input type="checkbox" id="mbr-no-waitlist" style="width:auto">
+      <span>Não usar na lista de espera automática</span>
+    </label>
     <div class="mf">
       <label>Foto do Barbeiro</label>
       <div class="photo-upload-wrap">
@@ -4435,6 +4439,7 @@ function openModal(type) {
     document.getElementById('modal-barber-title').textContent='Novo Barbeiro';
     document.getElementById('mbr-id').value='';
     ['mbr-name','mbr-role','mbr-icon','mbr-photo'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('mbr-no-waitlist').checked=false;
     document.getElementById('mbr-photo-preview').innerHTML='📷';
     document.getElementById('mbr-photo-remove').classList.remove('show');
     document.getElementById('mbr-photo-input').value='';
@@ -4811,7 +4816,7 @@ async function autoFillWaitlist() {
       const svc = DB.services.find(x => x.id === w.serviceId);
       if (!svc) continue;
       const [y, m, d] = w.date.split('-').map(Number);
-      const barbers = w.barberId ? DB.barbers.filter(b => b.id === w.barberId) : DB.barbers;
+      const barbers = DB.barbers.filter(b => !b.noWaitlist && (!w.barberId || b.id === w.barberId));
       const times = [...w.preferredTimes].sort((a, b) => toMin(a) - toMin(b));
       let done = false;
       for (const time of times) {
@@ -5008,6 +5013,7 @@ function editBarber(id) {
   document.getElementById('mbr-id').value=id;
   document.getElementById('mbr-name').value=b.name;
   document.getElementById('mbr-role').value=b.role;
+  document.getElementById('mbr-no-waitlist').checked=!!b.noWaitlist;
   document.getElementById('mbr-icon').value=['SOLANGE_SVG','ARIANE_SVG','HOMER_SVG','MARGE_SVG','LISA_SVG'].includes(b.icon)?'':b.icon||'';
   // Load photo if exists
   const photo = b.photo || '';
@@ -5055,6 +5061,7 @@ async function sendBarberAdminPasswordReset() {
 async function saveBarber() {
   const id=v('mbr-id'), name=v('mbr-name').trim(), role=v('mbr-role').trim();
   const photo=v('mbr-photo'), icon=v('mbr-icon').trim()||'💈';
+  const noWaitlist=document.getElementById('mbr-no-waitlist').checked;
   if (!name||!role) { showModalErr('modal-barber-err','Preencha o nome e a função.'); return; }
 
   const wantsAdmin = document.getElementById('mbr-adm-enable').checked;
@@ -5079,10 +5086,10 @@ async function saveBarber() {
   let barberRecordId = id;
   if (id) {
     const b=DB.barbers.find(x=>x.id===id);
-    b.name=name; b.role=role; b.icon=icon; b.photo=photo||null;
-    fsUpdate('barbers',id,{name,role,icon,photo:photo||null});
+    b.name=name; b.role=role; b.icon=icon; b.photo=photo||null; b.noWaitlist=noWaitlist;
+    fsUpdate('barbers',id,{name,role,icon,photo:photo||null,noWaitlist});
   } else {
-    const nb={ id:uid('br'), name, role, icon, photo:photo||null };
+    const nb={ id:uid('br'), name, role, icon, photo:photo||null, noWaitlist };
     DB.barbers.push(nb);
     fsSet('barbers',nb.id,nb);
     barberRecordId = nb.id;
